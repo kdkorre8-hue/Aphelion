@@ -197,14 +197,13 @@ async function main() {
   }
 
   // The arm: a faint timeline line, soft gas clouds and haze
+  const ARM_LINE_OPACITY = 0.14;
+  const armLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(Array.from({ length: 801 }, (_, i) => onArm(i / 800))),
+    new THREE.LineBasicMaterial({ color: "#6d7fa8", transparent: true, opacity: ARM_LINE_OPACITY, depthWrite: false }),
+  );
+  scene.add(armLine);
   {
-    const line = [];
-    for (let i = 0; i <= 800; i++) line.push(onArm(i / 800));
-    scene.add(new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(line),
-      new THREE.LineBasicMaterial({ color: "#6d7fa8", transparent: true, opacity: 0.14, depthWrite: false }),
-    ));
-
     const rand = seededRandom("gas");
     const gas = { positions: [], tints: [], sizes: [], seeds: [] };
     for (let i = 0; i < 240; i++) {
@@ -647,7 +646,9 @@ async function main() {
     lastFrame = now;
     if (!calm) stars.uniforms.time.value = now / 1000;
     for (const p of planets) p.pivot.rotation.y += p.speed * dt;
-    for (const c of clearings) c.zone.w += (c.target - c.zone.w) * (calm ? 1 : Math.min(1, dt * 3));
+    const fade = calm ? 1 : Math.min(1, dt * 3);
+    for (const c of clearings) c.zone.w += (c.target - c.zone.w) * fade;
+    armLine.material.opacity += ((system ? 0 : ARM_LINE_OPACITY) - armLine.material.opacity) * fade; // it would cut through the system
     if (system) system.sun.material.uniforms.time.value = now / 1000;
 
     if (flight) {
