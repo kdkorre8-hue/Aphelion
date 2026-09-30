@@ -360,6 +360,23 @@ async function main() {
   let system = null;
   const planets = [];
 
+  // The stars, dust and haze around the star you visit fade away so its planets have room, and come back
+  // when you leave. Two clearings, so the one you're leaving can fill back in while the next one opens.
+  const clearings = [0, 1].map(() => ({ zone: new THREE.Vector4(), target: 0 })); // zone: center xyz, radius w
+  let clearing = clearings[0];
+  stars.uniforms.clearings.value = soft.uniforms.clearings.value = clearings.map((c) => c.zone);
+
+  function openClearing(position, radius) {
+    clearing.target = 0;
+    clearing = clearings.find((c) => c !== clearing);
+    clearing.zone.set(position.x, position.y, position.z, 0);
+    clearing.target = radius;
+  }
+  const inClearing = (p) => {
+    const z = clearing.zone;
+    return Math.hypot(p.x - z.x, p.y - z.y, p.z - z.z) < z.w * 1.15; // about where they're half faded
+  };
+
   function openSystem(info) {
     const { artist } = info;
     const group = new THREE.Group();
@@ -486,6 +503,7 @@ async function main() {
   function visit(info) {
     closeSystem();
     system = openSystem(info);
+    openClearing(info.position, system.extent + 6);
     for (const l of timeLabels) l.visible = false;
     flyTo(info.position, system.extent * 1.7 + 4);
     ui.showCrumb(info.artist.name, goHome);
@@ -501,6 +519,7 @@ async function main() {
 
   function goHome() {
     closeSystem();
+    clearing.target = 0;
     for (const l of timeLabels) l.visible = true;
     flyTo(home.target, home.distance, home.dir);
     ui.hideCrumb();
@@ -535,6 +554,7 @@ async function main() {
     const pixelsPerUnit = window.innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     let best = null, bestScore = Infinity;
     for (const info of starInfo) {
+      if (system && info !== system.info && inClearing(info.position)) continue; // faded away around the visited star
       const d = screenDistance(info.position, x, y);
       if (d === null) continue;
       const reach = Math.max(12, (info.size * 0.2 * pixelsPerUnit) / camera.position.distanceTo(info.position));
@@ -542,6 +562,7 @@ async function main() {
     }
     if (best) return best;
     for (let i = 0; i < dustPositions.length; i++) {
+      if (system && inClearing(dustPositions[i])) continue;
       const d = screenDistance(dustPositions[i], x, y);
       if (d !== null && d < 7 && d < bestScore) { best = { kind: "dust", artist: data.dust[i] }; bestScore = d; }
     }
@@ -626,6 +647,7 @@ async function main() {
     lastFrame = now;
     if (!calm) stars.uniforms.time.value = now / 1000;
     for (const p of planets) p.pivot.rotation.y += p.speed * dt;
+    for (const c of clearings) c.zone.w += (c.target - c.zone.w) * (calm ? 1 : Math.min(1, dt * 3));
     if (system) system.sun.material.uniforms.time.value = now / 1000;
 
     if (flight) {
