@@ -1,0 +1,9 @@
+.env
+token.json
+__pycache__/
+.venv/
+heavy_rotation.db*
+logger.log
+web/galaxy.json
+my_spotify_data*.zip
+*Extended Streaming History*/
