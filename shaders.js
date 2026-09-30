@@ -5,6 +5,8 @@ import * as THREE from "three";
 
 // Size in world units -> pixels, shared by all glowing points. Faint below 2px instead of flickering,
 // and (with nearFade) dimmer when very close to the camera, so nearby dust doesn't turn into big bright blobs.
+// Points inside a clearing (xyz center, w radius) fade away, so a star you visit has room for its planets.
+// The star itself, right at the center, stays. All points sit at the origin, so position is also world position.
 const pointVertex = /* glsl */ `
   attribute float size;
   attribute vec3 tint;
@@ -12,24 +14,34 @@ const pointVertex = /* glsl */ `
   attribute float spike;
   uniform float scale;
   uniform float nearFade;
+  uniform vec4 clearings[2];
   varying vec3 vTint;
   varying float vSeed;
   varying float vSpike;
   varying float vFade;
+  float outside(vec4 clearing) {
+    float d = distance(position, clearing.xyz);
+    return d < 0.01 ? 1.0 : smoothstep(clearing.w, clearing.w * 1.3 + 0.001, d);
+  }
   void main() {
     vTint = tint;
     vSeed = seed;
     vSpike = spike;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float pixels = size * scale / -mvPosition.z;
-    vFade = clamp(pixels / 2.0, 0.0, 1.0) * mix(1.0, clamp(120.0 / pixels, 0.2, 1.0), nearFade);
+    float shown = outside(clearings[0]) * outside(clearings[1]);
+    vFade = clamp(pixels / 2.0, 0.0, 1.0) * mix(1.0, clamp(120.0 / pixels, 0.2, 1.0), nearFade) * shown;
     gl_PointSize = clamp(pixels, 2.0, 600.0);
-    gl_Position = projectionMatrix * mvPosition;
+    gl_Position = shown > 0.0 ? projectionMatrix * mvPosition : vec4(2.0, 2.0, 2.0, 1.0); // fully hidden: skip drawing it
   }`;
 
 function pointsMaterial(fragmentShader, extraUniforms = {}) {
   return new THREE.ShaderMaterial({
-    uniforms: { scale: { value: 1 }, time: { value: 0 }, nearFade: { value: 1 }, ...extraUniforms },
+    uniforms: {
+      scale: { value: 1 }, time: { value: 0 }, nearFade: { value: 1 },
+      clearings: { value: [new THREE.Vector4(), new THREE.Vector4()] },
+      ...extraUniforms,
+    },
     vertexShader: pointVertex,
     fragmentShader,
     transparent: true,
