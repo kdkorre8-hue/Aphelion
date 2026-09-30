@@ -14,6 +14,7 @@ import random
 import sqlite3
 import webbrowser
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -92,8 +93,7 @@ def logger_plays(db, after):
 
 def top_tracks(token):
     """Your top 50 songs for each time range: used for the preview and for album pictures."""
-    top = {}
-    for time_range in PREVIEW_DAYS:
+    def fetch(time_range):
         resp = requests.get(
             f"{API}/me/top/tracks",
             headers={"Authorization": f"Bearer {token}"},
@@ -101,8 +101,10 @@ def top_tracks(token):
             timeout=10,
         )
         resp.raise_for_status()
-        top[time_range] = [t for t in resp.json()["items"] if t.get("id") and t.get("artists")]
-    return top
+        return [t for t in resp.json()["items"] if t.get("id") and t.get("artists")]
+
+    with ThreadPoolExecutor() as pool:  # all three at once instead of waiting for each in turn
+        return dict(zip(PREVIEW_DAYS, pool.map(fetch, PREVIEW_DAYS)))
 
 
 def preview_plays(top, now):
