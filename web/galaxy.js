@@ -20,7 +20,7 @@ const TURNS = 2;                 // how many times the timeline winds around the
 const INNER_RADIUS = 20;         // where your first play is
 const OUTER_RADIUS = 240;        // where today is
 const ARM_WIDTH = [10, 34];      // width of the arm at the start and at today
-const MAX_PLANETS = 30;          // an artist's most played songs become planets, the rest an asteroid belt
+const MAX_PLANETS = 20;          // an artist's most played songs become planets, the rest an asteroid belt
 const PLANET_LABELS = 8;         // how many planets get a name tag (the rest on hover)
 const ORBIT_SPEED = 0.5;
 const BREAK_MONTHS = 4;          // this many empty months in a row count as a break in your listening
@@ -398,7 +398,9 @@ async function main() {
     let orbit = sunRadius * 1.8 + 0.8, previous = 0;
     for (const song of planetSongs) {
       const size = 0.35 + 1.0 * Math.sqrt(song.plays / maxPlays);
-      orbit += previous + size + 0.6;
+      // Seen from the usual ~40° above, orbits look squashed to about 0.64 of their spacing, so neighbours
+      // need 1.6x their radii apart or they seem to crash into each other when one overtakes the other
+      orbit += 1.7 * (previous + size) + 0.4;
       previous = size;
       const ring = new THREE.EllipseCurve(0, 0, orbit, orbit).getPoints(160).map((p) => new THREE.Vector3(p.x, 0, p.y));
       orbits.add(new THREE.LineLoop(
