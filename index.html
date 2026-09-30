@@ -135,7 +135,8 @@
     .pulse { position: relative; width: 7px; height: 7px; border-radius: 50%; background: #72d0ff; box-shadow: 0 0 8px #72d0ff; }
     .pulse::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 1px solid #72d0ff; animation: ping 2.4s ease-out infinite; }
     @keyframes ping { from { transform: scale(0.4); opacity: 0.9; } to { transform: scale(1.8); opacity: 0; } }
-    .label.planet { font-size: 11px; color: rgba(232, 236, 250, 0.78); transition: color 0.2s; }
+    .label.planet { font-size: 11px; color: rgba(232, 236, 250, 0.78); transition: color 0.2s, opacity 0.3s; }
+    .label.planet.crowded { opacity: 0; }
     .label.planet.lit { color: #fff; font-weight: 600; }
 
     /* loading and messages */

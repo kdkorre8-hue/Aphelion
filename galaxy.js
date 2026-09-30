@@ -417,7 +417,7 @@ async function main() {
       );
       planet.position.x = orbit;
       planet.rotation.z = (rand() - 0.5) * 0.5;
-      planet.userData = { kind: "song", song, artist, size };
+      planet.userData = { kind: "song", song, artist, size, rank: artist.songs.indexOf(song) };
       planet.add(new THREE.Mesh(new THREE.SphereGeometry(size * 1.07, 48, 24), atmosphereMaterial(color.clone().offsetHSL(0, 0.1, 0.1), info.position.clone())));
       pivot.add(planet);
       planets.push({ pivot, speed: ORBIT_SPEED / Math.pow(orbit, 0.9) });
@@ -458,7 +458,8 @@ async function main() {
       extent = beltRadius + 1;
     }
     sunlight.position.copy(info.position);
-    return { info, group, sun, targets, meshes, extent, pulses: makePulses(info) };
+    const byRank = targets.filter((t) => t.userData.kind === "song").sort((a, b) => a.userData.rank - b.userData.rank);
+    return { info, group, sun, targets, meshes, byRank, extent, pulses: makePulses(info) };
   }
 
   function closeSystem() {
@@ -477,6 +478,25 @@ async function main() {
     planet.scale.setScalar(on ? 1.25 : 1);
     planet.userData.tag.visible = on || planet.userData.named;
     planet.userData.tag.element.classList.toggle("lit", on);
+  }
+
+  // A planet's name fades out while it would cover the name of a more played song (or the one you point at)
+  const tagAt = new THREE.Vector3();
+  function declutterTags() {
+    const lit = (p) => p.userData.tag.element.classList.contains("lit");
+    const tagged = system.byRank.filter((p) => p.userData.tag.visible).sort((a, b) => lit(b) - lit(a)); // otherwise by rank
+    const placed = [];
+    for (const planet of tagged) {
+      const { tag } = planet.userData;
+      const { offsetWidth: w, offsetHeight: h } = tag.element; // 0 until the label renderer has drawn it once
+      if (!w) continue;
+      tag.getWorldPosition(tagAt).project(camera);
+      const x = ((tagAt.x + 1) / 2) * window.innerWidth, y = ((1 - tagAt.y) / 2) * window.innerHeight;
+      const box = [x - w / 2 - 4, y - h / 2, x + w / 2 + 4, y + h / 2];
+      const covered = placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
+      tag.element.classList.toggle("crowded", covered);
+      if (!covered) placed.push(box);
+    }
   }
   const openSong = (id) => window.open(`https://open.spotify.com/track/${id}`, "_blank", "noopener");
 
@@ -667,6 +687,7 @@ async function main() {
     controls.update();
     updateHover();
     composer.render();
+    if (system) declutterTags();
     labelRenderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
