@@ -7,13 +7,16 @@ import * as THREE from "three";
 // and (with nearFade) dimmer when very close to the camera, so nearby dust doesn't turn into big bright blobs.
 // Points inside a clearing (xyz center, w radius) fade away, so a star you visit has room for its planets.
 // The star itself, right at the center, stays. All points sit at the origin, so position is also world position.
+// While focus is up, points dim to 30% unless their emphasis (0-1) says they're what you're looking at.
 const pointVertex = /* glsl */ `
   attribute float size;
   attribute vec3 tint;
   attribute float seed;
   attribute float spike;
+  attribute float emphasis;
   uniform float scale;
   uniform float nearFade;
+  uniform float focus;
   uniform vec4 clearings[2];
   varying vec3 vTint;
   varying float vSeed;
@@ -30,7 +33,8 @@ const pointVertex = /* glsl */ `
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float pixels = size * scale / -mvPosition.z;
     float shown = outside(clearings[0]) * outside(clearings[1]);
-    vFade = clamp(pixels / 2.0, 0.0, 1.0) * mix(1.0, clamp(120.0 / pixels, 0.2, 1.0), nearFade) * shown;
+    vFade = clamp(pixels / 2.0, 0.0, 1.0) * mix(1.0, clamp(120.0 / pixels, 0.2, 1.0), nearFade) * shown
+      * mix(1.0, 0.3 + 0.7 * emphasis, focus);
     gl_PointSize = clamp(pixels, 2.0, 600.0);
     gl_Position = shown > 0.0 ? projectionMatrix * mvPosition : vec4(2.0, 2.0, 2.0, 1.0); // fully hidden: skip drawing it
   }`;
@@ -38,7 +42,7 @@ const pointVertex = /* glsl */ `
 function pointsMaterial(fragmentShader, extraUniforms = {}) {
   return new THREE.ShaderMaterial({
     uniforms: {
-      scale: { value: 1 }, time: { value: 0 }, nearFade: { value: 1 },
+      scale: { value: 1 }, time: { value: 0 }, nearFade: { value: 1 }, focus: { value: 0 },
       clearings: { value: [new THREE.Vector4(), new THREE.Vector4()] },
       ...extraUniforms,
     },
@@ -105,9 +109,10 @@ export function makePoints({ positions, tints, sizes, seeds, spikes }, material)
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("tint", new THREE.Float32BufferAttribute(tints, 3));
   geometry.setAttribute("size", new THREE.Float32BufferAttribute(sizes, 1));
-  const zeros = () => new Array(sizes.length).fill(0);
-  geometry.setAttribute("seed", new THREE.Float32BufferAttribute(seeds ?? zeros(), 1));
-  geometry.setAttribute("spike", new THREE.Float32BufferAttribute(spikes ?? zeros(), 1));
+  const filled = (value) => new Array(sizes.length).fill(value);
+  geometry.setAttribute("seed", new THREE.Float32BufferAttribute(seeds ?? filled(0), 1));
+  geometry.setAttribute("spike", new THREE.Float32BufferAttribute(spikes ?? filled(0), 1));
+  geometry.setAttribute("emphasis", new THREE.Float32BufferAttribute(filled(1), 1));
   return new THREE.Points(geometry, material);
 }
 
