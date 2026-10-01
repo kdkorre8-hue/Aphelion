@@ -746,7 +746,8 @@ async function main() {
   function reframe() {
     insets = measureInsets(!!system);
     frameHome();
-    if (userMoved) return;
+    // and not when there's hardly any room left, as with the artist sheet pulled all the way up on a phone
+    if (userMoved || window.innerHeight - insets.top - insets.bottom < 120) return;
     const target = system ? system.info.position : home.target;
     const dir = flight ? flight.dir : camera.position.clone().sub(controls.target).normalize();
     const distance = system ? fitDistance(system.ring, target, dir, insets) : home.distance;
@@ -796,6 +797,7 @@ async function main() {
       colorOf,
       timeline,
       onClose: goHome,
+      onSheet: reframe, // on phones: the sheet changed height, so the system fits a different space
       onSongEnter: (song) => highlightSong(song, true),
       onSongLeave: (song) => highlightSong(song, false),
       onSongClick: selectSong,
