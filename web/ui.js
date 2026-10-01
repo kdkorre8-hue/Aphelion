@@ -10,18 +10,20 @@ function el(tag, className, text) {
 
 // ---------- time and number formatting ----------
 
+const LOCALE = "en-US"; // the page is in English, so numbers and dates are written the English way
+
 export const monthNumber = (time) => { const d = new Date(time * 1000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
 export const monthStart = (month) => Date.UTC(Math.floor(month / 12), month % 12, 1) / 1000;
 
 export const format = {
-  month: (time) => new Date(time * 1000).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }),
-  hours: (hours) => (hours >= 1 ? `${Math.round(hours).toLocaleString()} h` : `${Math.max(1, Math.round(hours * 60))} min`),
-  count: (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`,
+  month: (time) => new Date(time * 1000).toLocaleDateString(LOCALE, { month: "short", year: "numeric", timeZone: "UTC" }),
+  hours: (hours) => (hours >= 1 ? `${Math.round(hours).toLocaleString(LOCALE)} h` : `${Math.max(1, Math.round(hours * 60))} min`),
+  count: (n, word) => `${n.toLocaleString(LOCALE)} ${word}${n === 1 ? "" : "s"}`,
   duration(months) {
     const years = Math.floor(months / 12), rest = months % 12;
     return [years && `${years} year${years > 1 ? "s" : ""}`, rest && `${rest} month${rest > 1 ? "s" : ""}`].filter(Boolean).join(", ");
   },
-  compact: (n) => (n >= 10_000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : n.toLocaleString()),
+  compact: (n) => (n >= 10_000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : n.toLocaleString(LOCALE)),
   ago(days) {
     if (days < 1) return "today";
     if (days < 2) return "yesterday";
@@ -32,7 +34,46 @@ export const format = {
   },
 };
 
+// ---------- icons ----------
+
+// Line icons on a 24-unit grid, drawn with a 1.5px stroke at any size, instead of text arrows and crosses
+const ICONS = {
+  close: ["M6 6l12 12", "M18 6L6 18"],
+  back: ["M19 12H5", "M11 6l-6 6 6 6"],
+  external: ["M8 16L16 8", "M9.5 8H16v6.5"],
+  search: ["M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z", "M15.5 15.5L20 20"],
+  play: ["M8 5.5v13l10.5-6.5z"],
+  pause: ["M9 5.5v13", "M15 5.5v13"],
+  info: ["M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z", "M12 11v5.5", "M12 7.6v.01"],
+  home: ["M4 11l8-6.5 8 6.5", "M6.5 9.5V19h11V9.5"],
+  plus: ["M12 5v14", "M5 12h14"],
+  minus: ["M5 12h14"],
+  fullscreen: ["M4 9V4h5", "M15 4h5v5", "M20 15v5h-5", "M9 20H4v-5"],
+  share: ["M12 15V4", "M7.5 8.5L12 4l4.5 4.5", "M5 13v7h14v-7"],
+  left: ["M14.5 6l-6 6 6 6"],
+  right: ["M9.5 6l6 6-6 6"],
+  down: ["M6 9.5l6 6 6-6"],
+  up: ["M6 14.5l6-6 6 6"],
+};
+const FILLED_ICONS = new Set(["play"]);
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+export function icon(name) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", FILLED_ICONS.has(name) ? "icon filled" : "icon");
+  svg.setAttribute("aria-hidden", "true");
+  for (const d of ICONS[name]) {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
+  return svg;
+}
+
 // ---------- page chrome ----------
+
+$("back").prepend(icon("back"));
 
 export function showMessage(text) {
   const box = $("message");
@@ -55,6 +96,18 @@ export function setupHeader(data) {
   ];
   $("chips").replaceChildren(...chips.map((text) => el("span", "chip", text)));
   $("preview").hidden = data.mode !== "preview";
+}
+
+// The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale)
+export function setupLegend(heat) {
+  const longest = heat.at(-1)[0];
+  const at = (days) => `${((Math.log1p(days) / Math.log1p(longest)) * 100).toFixed(1)}%`;
+  document.documentElement.style.setProperty("--heat", `linear-gradient(90deg, ${heat.map(([days, color]) => `${color} ${at(days)}`).join(", ")})`);
+  $("heat-ticks").replaceChildren(...[[0, "now"], [7, "1 wk"], [30, "1 mo"], [365, "1 yr"]].map(([days, text]) => {
+    const tick = el("span", "", text);
+    tick.style.left = at(days);
+    return tick;
+  }));
 }
 
 // The "how to move around" hint fades once you've started exploring
@@ -153,7 +206,8 @@ export function openPanel(artist, data, { color, ago, onClose, onSongEnter, onSo
   panel.replaceChildren();
   panel.style.setProperty("--artist", color);
 
-  const close = el("button", "panel-close", "×");
+  const close = el("button", "panel-close");
+  close.append(icon("close"));
   close.type = "button";
   close.setAttribute("aria-label", "Back to the galaxy");
   close.onclick = onClose;
@@ -180,7 +234,8 @@ export function openPanel(artist, data, { color, ago, onClose, onSongEnter, onSo
     list.append(item);
   });
 
-  const link = el("a", "spotify-link", "Find on Spotify ↗");
+  const link = el("a", "spotify-link", "Find on Spotify");
+  link.append(icon("external"));
   link.href = `https://open.spotify.com/search/${encodeURIComponent(artist.name)}`;
   link.target = "_blank";
   link.rel = "noopener";
