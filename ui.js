@@ -207,41 +207,53 @@ export function hideCrumb() {
 
 // ---------- tooltip ----------
 
+// What a star, a speck of dust or a song is: a title and a line or two, for the tooltip and the card.
+// item: { kind: "star" | "dust" | "song", artist, song?, asteroid? }; ago: time -> days since
+function describe(item, ago) {
+  const a = item.artist;
+  if (item.kind === "song") {
+    const s = item.song;
+    return {
+      image: s.image, title: s.name,
+      lines: [`${a.name}${s.album ? ` · ${s.album}` : ""}`, `${format.count(s.plays, "play")} · ${format.hours(s.minutes / 60)} · last played ${format.ago(ago(s.last))}`],
+    };
+  }
+  return {
+    title: a.name,
+    lines: [
+      `${format.hours(a.hours)} · ${format.count(a.plays, "play")} · ${format.count(a.song_count, "song")}`,
+      item.kind === "star"
+        ? `Most played in ${format.month(a.peak)} · last played ${format.ago(ago(a.last))}`
+        : `Last played ${format.ago(ago(a.last))} · top song: ${a.top_song.name}`,
+    ],
+  };
+}
+
+function describeInto(box, item, ago) {
+  const { image, title, lines } = describe(item, ago);
+  if (image) {
+    const img = el("img");
+    img.src = image;
+    img.alt = "";
+    box.append(img);
+  }
+  const text = el("div", "tip-text");
+  text.append(el("div", "tip-title", title), ...lines.map((line) => el("div", "tip-meta", line)));
+  box.append(text);
+  return text;
+}
+
 const tip = $("tooltip");
 let tipAbove = false;
 
 export const tooltip = {
-  // item: { kind: "star" | "dust" | "song", artist, song?, asteroid? }; ago: time -> days since
   show(item, { ago, visiting }) {
     tipAbove = item.kind !== "song"; // star names hang below their stars, planet names sit above their planets
     tip.replaceChildren();
-    const text = el("div", "tip-text");
-    const add = (content, className) => text.append(el("div", className, content));
-    const a = item.artist;
-    if (item.kind === "song") {
-      const s = item.song;
-      if (s.image) {
-        const img = el("img");
-        img.src = s.image;
-        img.alt = "";
-        tip.append(img);
-      }
-      add(s.name, "tip-title");
-      add(`${a.name}${s.album ? ` · ${s.album}` : ""}`, "tip-meta");
-      add(`${format.count(s.plays, "play")} · ${format.hours(s.minutes / 60)} · last played ${format.ago(ago(s.last))}`, "tip-meta");
-      add(item.asteroid ? "Asteroid belt: songs you played less · click for details" : "Click for details", "tip-hint");
-    } else {
-      add(a.name, "tip-title");
-      add(`${format.hours(a.hours)} · ${format.count(a.plays, "play")} · ${format.count(a.song_count, "song")}`, "tip-meta");
-      if (item.kind === "star") {
-        add(`Most played in ${format.month(a.peak)} · last played ${format.ago(ago(a.last))}`, "tip-meta");
-        if (!visiting) add("Click to fly in", "tip-hint");
-      } else {
-        add(`Last played ${format.ago(ago(a.last))} · top song: ${a.top_song.name}`, "tip-meta");
-        add("Click to play the top song in Spotify", "tip-hint");
-      }
-    }
-    tip.append(text);
+    const text = describeInto(tip, item, ago);
+    const hint = item.kind === "star" ? !visiting && "Click to fly in"
+      : item.asteroid ? "Asteroid belt: songs you played less · click for details" : "Click for details";
+    if (hint) text.append(el("div", "tip-hint", hint));
     tip.classList.add("shown");
   },
   // Beside the pointer, on the side away from the name of what you point at (flipped if there's no room)
@@ -256,6 +268,54 @@ export const tooltip = {
     tip.classList.remove("shown");
   },
 };
+
+// ---------- card ----------
+
+// A small card for something you clicked that has no page of its own, like a speck of dust: what it is, and
+// buttons for what you can do with it. Pinned where you clicked (docked at the bottom on phones); Escape, its
+// close button or a click anywhere else closes it.
+const cardBox = $("card");
+
+export const card = {
+  // actions: [{ label, icon, primary, external, onClick }]
+  show(item, { x, y, ago, actions }) {
+    cardBox.replaceChildren();
+    const close = el("button", "card-close");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close");
+    close.append(icon("close"));
+    close.onclick = () => card.hide();
+    const text = describeInto(cardBox, item, ago);
+    const buttons = el("div", "card-actions");
+    for (const action of actions) {
+      const b = el("button", action.primary ? "button primary" : "button");
+      b.type = "button";
+      b.append(...(action.icon ? [icon(action.icon)] : []), action.label, ...(action.external ? [icon("external")] : []));
+      b.onclick = () => {
+        card.hide();
+        action.onClick();
+      };
+      buttons.append(b);
+    }
+    text.append(buttons);
+    cardBox.prepend(close);
+    cardBox.hidden = false;
+    cardBox.setAttribute("aria-label", describe(item, ago).title);
+    const width = cardBox.offsetWidth, height = cardBox.offsetHeight;
+    const above = y - 16 - height;
+    cardBox.style.left = `${Math.max(12, Math.min(x + 16, window.innerWidth - width - 12))}px`;
+    cardBox.style.top = `${Math.max(12, Math.min(above >= 12 ? above : y + 16, window.innerHeight - height - 12))}px`;
+  },
+  hide() {
+    cardBox.hidden = true;
+  },
+  get isOpen() {
+    return !cardBox.hidden;
+  },
+};
+document.addEventListener("pointerdown", (e) => {
+  if (card.isOpen && !cardBox.contains(e.target)) card.hide();
+}, true);
 
 // ---------- artist panel ----------
 
