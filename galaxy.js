@@ -163,6 +163,9 @@ async function main() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   document.body.prepend(renderer.domElement);
+  renderer.domElement.setAttribute("role", "img");
+  renderer.domElement.setAttribute("aria-label", `Your listening galaxy: ${(data.stars.length + data.dust.length).toLocaleString("en-US")} artists ` +
+    `along a spiral from ${ui.format.month(data.start)} to today. Search with the slash key to go to an artist or a song.`);
 
   const labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -704,6 +707,7 @@ async function main() {
     if (previous && previous !== song) highlightSong(previous, false);
     highlightSong(song, true);
     setAddress(addressOf(system.info, song), true); // the song refines the star's address, so Back skips it
+    ui.announce(`${song.name}, ${ui.format.count(song.plays, "play")}`);
     ui.showSong(song, system.info.artist, { ago: daysAgo, colorOf, onPlay: (s) => openSong(s.id), onClear: clearSong });
   }
   function clearSong() {
@@ -843,6 +847,8 @@ async function main() {
     ui.showCrumb(info.artist.name, goHome);
     ui.setLegendMode("system");
     document.title = `${info.artist.name} · Aphelion`;
+    ui.announce(`${info.artist.name}, number ${info.index + 1} of your artists. ${ui.format.hours(info.artist.hours)} listened. ` +
+      "The left and right arrow keys go to the artist before and after along your timeline.");
     setAddress(addressOf(info));
     ui.openPanel(info.artist, data, {
       color: `#${info.color.getHexString()}`,
@@ -889,14 +895,15 @@ async function main() {
 
   function goHome() {
     leaveSystem();
+    ui.announce("The whole galaxy");
     userMoved = false;
     flyTo(home.target, home.distance, home.dir);
   }
 
   // A speck of dust's card, at a point on the screen
-  function showDust(item, x, y) {
+  function showDust(item, x, y, focus = false) {
     ui.card.show(item, {
-      x, y, ago: daysAgo,
+      x, y, ago: daysAgo, focus,
       actions: [{ label: "Play the top song", icon: "play", iconAfter: "external", primary: true, onClick: () => openSong(item.artist.top_song.id) }],
     });
   }
@@ -908,7 +915,7 @@ async function main() {
     const position = dustPositions[index];
     flyTo(position, 70, niceDirection(), 1.6, () => {
       const p = position.clone().project(camera);
-      showDust({ kind: "dust", artist: data.dust[index] }, ((p.x + 1) / 2) * window.innerWidth, ((1 - p.y) / 2) * window.innerHeight);
+      showDust({ kind: "dust", artist: data.dust[index] }, ((p.x + 1) / 2) * window.innerWidth, ((1 - p.y) / 2) * window.innerHeight, true);
     });
   }
 

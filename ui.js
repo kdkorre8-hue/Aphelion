@@ -357,8 +357,8 @@ const cardBox = $("card");
 let cardItem = null, cardClosedAt = -Infinity;
 
 export const card = {
-  // actions: [{ label, icon, iconAfter, primary, onClick }]
-  show(item, { x, y, ago, actions }) {
+  // actions: [{ label, icon, iconAfter, primary, onClick }]; focus: move the focus to its first button
+  show(item, { x, y, ago, actions, focus = false }) {
     cardItem = item;
     cardBox.replaceChildren();
     const close = el("button", "card-close");
@@ -386,6 +386,7 @@ export const card = {
     const above = y - 16 - height;
     cardBox.style.left = `${Math.max(12, Math.min(x + 16, window.innerWidth - width - 12))}px`;
     cardBox.style.top = `${Math.max(12, Math.min(above >= 12 ? above : y + 16, window.innerHeight - height - 12))}px`;
+    if (focus) buttons.querySelector("button")?.focus({ preventScroll: true });
   },
   hide() {
     if (cardBox.hidden) return;
@@ -546,11 +547,16 @@ function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onS
   const bar = el("span", "song-bar");
   bar.style.width = `${Math.max(2, (song.plays / mostPlays) * 100)}%`;
   text.append(el("span", "song-name", song.name), bar);
-  item.append(el("span", "song-rank", String(rank)), art, text, el("span", "song-plays", format.compact(song.plays)));
-  item.title = `${song.name} · ${format.count(song.plays, "play")}`;
-  item.onmouseenter = () => onSongEnter(song);
-  item.onmouseleave = () => onSongLeave(song);
-  item.onclick = () => onSongClick(song);
+  // a button, so the keyboard reaches it too: focusing it lights its planet like pointing at it does
+  const row = el("button", "song-row");
+  row.type = "button";
+  row.append(el("span", "song-rank", String(rank)), art, text, el("span", "song-plays", format.compact(song.plays)));
+  row.title = `${song.name} · ${format.count(song.plays, "play")}`;
+  row.setAttribute("aria-label", `${rank}. ${song.name}, ${format.count(song.plays, "play")}`);
+  row.onmouseenter = row.onfocus = () => onSongEnter(song);
+  row.onmouseleave = row.onblur = () => onSongLeave(song);
+  row.onclick = () => onSongClick(song);
+  item.append(row);
   return item;
 }
 
@@ -674,6 +680,7 @@ function panelSteps([before, after]) {
 
 export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, steps, onClose, onSheet, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
+  if (!panel.contains(document.activeElement)) returnFocus = document.activeElement; // before the old panel goes
   panel.replaceChildren();
   songRows.clear();
   panel.style.setProperty("--artist", color);
@@ -723,6 +730,12 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, s
   link.target = "_blank";
   link.rel = "noopener";
 
+  // the artist's name names the panel, and takes the focus when it opens, so the keyboard and screen readers
+  // carry on from there
+  const title = el("h2", "", artist.name);
+  title.id = "panel-title";
+  title.tabIndex = -1;
+
   // the top of the panel, which on phones is also where you drag the sheet
   const head = el("div", "panel-head");
   const handle = el("div", "sheet-handle");
@@ -730,7 +743,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, s
   head.append(
     handle,
     el("div", "eyebrow", `Artist · #${rank} of ${(data.stars.length + data.dust.length).toLocaleString("en-US")}`),
-    el("h2", "", artist.name),
+    title,
     el("p", "panel-sub", `Most played in ${format.month(artist.peak)} · last played ${format.ago(ago(artist.last))}`),
   );
 
@@ -750,6 +763,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, s
   );
   panel.hidden = false;
   setupSheet(panel, head, stats, { onChange: onSheet, onClose });
+  title.focus({ preventScroll: true });
   requestAnimationFrame(() => {
     panel.classList.add("open");
     drawTimeline(canvas, artist, timeline, color);
@@ -757,9 +771,36 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, s
   });
 }
 
+// When the panel closes, the focus goes back to where it was before it opened (the search, a button...)
+let returnFocus = null;
 export function closePanel() {
   const panel = $("panel");
+  const hadFocus = panel.contains(document.activeElement);
   panel.classList.remove("open");
   panel.hidden = true;
+  if (hadFocus && returnFocus?.isConnected && returnFocus !== document.body) returnFocus.focus({ preventScroll: true });
+  returnFocus = null;
+}
+
+// Tab and Shift+Tab go round the things in an open window instead of out into the page behind it.
+// Call it from the window's keydown; it returns whether it handled the key.
+export function keepFocusIn(box, e) {
+  if (e.key !== "Tab") return false;
+  const stops = [...box.querySelectorAll("button, input, a[href], [tabindex]:not([tabindex='-1'])")]
+    .filter((node) => !node.disabled && node.offsetParent !== null);
+  if (!stops.length) return false;
+  const first = stops[0], last = stops.at(-1);
+  if (stops.length === 1 || (e.shiftKey && document.activeElement === first) || (!e.shiftKey && document.activeElement === last)) {
+    e.preventDefault();
+    (e.shiftKey ? last : first).focus();
+  }
+  return true;
+}
+
+// Say something to screen readers, without showing it: where you've gone, what you've picked
+export function announce(text) {
+  const box = $("announcer");
+  box.textContent = "";
+  requestAnimationFrame(() => { box.textContent = text; }); // a change, even when it's the same words again
 }
 

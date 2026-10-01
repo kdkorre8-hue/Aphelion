@@ -56,6 +56,16 @@
     canvas { display: block; }
     button { font: inherit; color: inherit; }
     [hidden] { display: none !important; } /* otherwise a display rule below wins and the hidden box blocks the mouse */
+    :focus-visible { outline: 2px solid var(--interactive); outline-offset: 2px; }
+    :focus:not(:focus-visible) { outline: none; }
+    #search-input:focus-visible { outline: none; } /* the box around it shows where you are */
+    /* for screen readers only */
+    .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+    /* the first stop for the keyboard, out of sight until then */
+    .skip { position: fixed; z-index: 40; top: calc(64px + var(--safe-top)); left: calc(20px + var(--safe-left)); transform: translateY(-300%);
+      padding: 8px 14px; border: 0; border-radius: 999px;
+      background: var(--interactive); color: #0d0f1e; font-weight: 500; cursor: pointer; }
+    .skip:focus-visible { transform: none; } /* under the logo */
     .icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .icon path { vector-effect: non-scaling-stroke; } /* 1.5px at any icon size */
     .icon.filled { fill: currentColor; }
@@ -201,6 +211,7 @@
       background: var(--glass-strong); opacity: 0; transform: translateX(16px); transition: opacity 0.35s ease, transform 0.35s ease; }
     #panel.open { opacity: 1; transform: none; }
     .sheet-handle { display: none; } /* phones only */
+    #panel h2:focus { outline: none; } /* focused to carry on from, not something to act on */
     #panel h2 { margin: 6px 0 4px; font: var(--type-title); letter-spacing: -0.01em; overflow-wrap: anywhere; }
     #panel h2::after { content: ""; display: block; width: 36px; height: 3px; border-radius: 2px; margin-top: 12px; background: var(--artist, var(--text)); }
     .panel-sub { margin: 10px 0 18px; color: var(--muted); font-size: var(--fs-small); }
@@ -226,11 +237,12 @@
     .timeline-chart.reading .timeline-readout { opacity: 1; }
     .timeline-chart.reading .timeline-range { visibility: hidden; }
     .songs { list-style: none; margin: 8px 0 16px; padding: 0; }
-    .songs li { display: grid; grid-template-columns: 18px 22px 1fr auto; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px;
-      border-radius: 8px; cursor: pointer; font-size: var(--fs-small); }
-    .songs li:hover { background: rgba(255, 255, 255, 0.06); }
-    .songs li.lit { background: rgba(255, 255, 255, 0.08); box-shadow: inset 2px 0 0 var(--planet); } /* you point at its planet */
-    .songs li.selected { background: rgba(255, 255, 255, 0.1); box-shadow: inset 2px 0 0 var(--planet); }
+    .songs li { margin: 0 -8px; }
+    .song-row { width: 100%; display: grid; grid-template-columns: 18px 22px 1fr auto; align-items: center; gap: 10px; padding: 6px 8px;
+      border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; font-size: var(--fs-small); }
+    .song-row:hover { background: rgba(255, 255, 255, 0.06); }
+    .songs li.lit .song-row { background: rgba(255, 255, 255, 0.08); box-shadow: inset 2px 0 0 var(--planet); } /* you point at its planet */
+    .songs li.selected .song-row { background: rgba(255, 255, 255, 0.1); box-shadow: inset 2px 0 0 var(--planet); }
 
     /* the song you clicked */
     .song-card { margin: 10px 0 12px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
@@ -383,7 +395,9 @@
     #message { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); background: var(--bg); }
 
     @media (prefers-reduced-motion: reduce) {
-      .loader .mark, .pulse::after { animation: none; }
+      .loader .mark, .pulse::after, #story-text, #toast, .modal.making .share-preview { animation: none; }
+      #panel { transform: none; } /* it fades in and out without sliding */
+      #panel.settling { transition: opacity 0.35s ease; }
     }
     /* small screens: the totals on their own line, panel as a bottom sheet, the legend folded */
     @media (max-width: 760px) {
@@ -423,6 +437,9 @@
       <circle cx="25.44" cy="9.26" r="4.6" fill="url(#mark-glow)"/><circle cx="25.44" cy="9.26" r="2.1" fill="#fff"/>
     </symbol>
   </svg>
+  <button id="skip" class="skip" type="button">Search your galaxy</button>
+  <div id="announcer" class="visually-hidden" aria-live="polite"></div>
+
   <header id="topbar">
     <button id="brand" class="brand" type="button" title="The whole galaxy (H)">
       <svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span class="wordmark">Aphelion</span>
@@ -437,9 +454,7 @@
     <div id="actions" class="actions"></div>
   </header>
 
-  <div id="controls" class="glass" role="toolbar" aria-label="View"></div>
-
-  <aside id="panel" class="glass" hidden></aside>
+  <aside id="panel" class="glass" aria-labelledby="panel-title" hidden></aside>
 
   <section id="legend" class="glass" aria-label="How to read the galaxy">
     <button id="legend-toggle" class="legend-toggle" type="button" aria-controls="legend-body"></button>
@@ -481,6 +496,8 @@
       <div id="scrubber-thumb" class="scrubber-thumb" role="slider" tabindex="0" aria-label="Month"></div>
     </div>
   </section>
+
+  <div id="controls" class="glass" role="toolbar" aria-label="View"></div>
 
   <div id="hint"><b>Drag</b> to orbit · <b>scroll</b> to zoom · <b>click a star</b> to fly in</div>
   <div id="toast" class="glass" role="status" hidden></div>
