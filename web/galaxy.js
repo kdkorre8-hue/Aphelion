@@ -638,7 +638,7 @@ async function main() {
   function chromeBoxes() {
     if (performance.now() - chromeAt > 500) {
       chromeAt = performance.now();
-      chrome = ["legend", "controls", "scrubber"].map((id) => document.getElementById(id).getBoundingClientRect())
+      chrome = ["legend", "controls", "scrubber", "story"].map((id) => document.getElementById(id).getBoundingClientRect())
         .filter((r) => r.width > 0).map((r) => [r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
     }
     return chrome;
@@ -731,8 +731,10 @@ async function main() {
   function measureInsets(visiting) {
     const bar = [...document.getElementById("topbar").children].map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0);
     const free = { left: 0, top: Math.max(0, ...bar.map((r) => r.bottom)) + 8, right: 0, bottom: 0 };
-    const strip = document.getElementById("scrubber").getBoundingClientRect();
-    if (strip.height) free.bottom = window.innerHeight - strip.top + 8;
+    for (const id of ["scrubber", "story"]) { // the time strip, and the story's caption while it's told
+      const box = document.getElementById(id).getBoundingClientRect();
+      if (box.height) free.bottom = Math.max(free.bottom, window.innerHeight - box.top + 8);
+    }
     const panel = document.getElementById("panel");
     if (visiting && !panel.hidden) { // (offsetTop and offsetLeft leave out the panel's slide-in)
       if (phone.matches) free.bottom = window.innerHeight - panel.offsetTop + 8;
@@ -783,7 +785,10 @@ async function main() {
 
   // When the window changes size, the view you were flown to keeps fitting, unless you've moved the camera since
   let userMoved = false;
-  controls.addEventListener("start", () => { userMoved = true; });
+  controls.addEventListener("start", () => {
+    userMoved = true;
+    if (tour) endTour({ flyHome: false }); // you took the camera
+  });
   function reframe() {
     insets = measureInsets(!!system);
     frameHome();
@@ -825,6 +830,7 @@ async function main() {
   }
 
   function visit(info, { seconds = 1.6 } = {}) {
+    if (tour) endTour({ flyHome: false });
     scrubber.release(); // the strip hides while you visit
     closeSystem();
     system = openSystem(info);
@@ -937,7 +943,7 @@ async function main() {
 
   ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
   const keys = {
-    Escape: () => (ui.card.isOpen ? ui.card.hide() : selected ? clearSong() : system ? goHome() : scrubber.release()), // one step back at a time
+    Escape: () => (tour ? endTour() : ui.card.isOpen ? ui.card.hide() : selected ? clearSong() : system ? goHome() : scrubber.release()), // one step back at a time
     h: showWholeGalaxy,
     "+": () => zoom(0.7), "=": () => zoom(0.7),
     "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
@@ -1072,7 +1078,7 @@ async function main() {
   const monthMarker = new THREE.Group();
   monthMarker.add(makePoints({ positions: [0, 0, 0], tints: [0.5, 0.72, 1], sizes: [26] }, sunGlow));
   monthMarker.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -4, 0), new THREE.Vector3(0, 70, 0)]),
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -3, 0), new THREE.Vector3(0, 32, 0)]),
     new THREE.LineBasicMaterial({ color: "#9fd4ff", transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }),
   ));
   monthMarker.visible = false;
@@ -1094,6 +1100,141 @@ async function main() {
       monthMarker.position.copy(onArm(frac(start + 15 * DAY)));
     },
   });
+
+  // ---------- your story ----------
+
+  // Your listening life told in chapters, flying along the arm: an opening, each stretch of months you
+  // listened (a year at a time when it's longer) with the artists you played most then, each long break,
+  // and today. The time strip steps through each chapter's months as it's told.
+  const monthName = (m) => new Date(ui.monthStart(m) * 1000).toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  const yearOf = (m) => Math.floor(m / 12);
+  const spanText = (a, b) => (a === b ? ui.format.month(ui.monthStart(a))
+    : yearOf(a) === yearOf(b) ? `${monthName(a)} – ${ui.format.month(ui.monthStart(b))}`
+      : `${ui.format.month(ui.monthStart(a))} – ${ui.format.month(ui.monthStart(b))}`);
+  const playsBetween = (months, a, b) => months.filter(([m]) => m >= a && m <= b).reduce((sum, [, n]) => sum + n, 0);
+
+  function storySteps() {
+    const first = ui.monthNumber(data.start), last = ui.monthNumber(data.end);
+    const pieces = []; // [from, to] stretches you listened, and the breaks between them
+    const addStretch = (a, b) => {
+      if (b - a + 1 <= 12) return pieces.push([a, b]);
+      for (let m = a; m <= b;) {
+        const december = Math.min(b, m - (m % 12) + 11);
+        pieces.push([m, december]);
+        m = december + 1;
+      }
+    };
+    let from = first;
+    for (const gap of timeline.breaks) {
+      if (gap.from > from) addStretch(from, gap.from - 1);
+      pieces.push(gap);
+      from = gap.to + 1;
+    }
+    if (from <= last) addStretch(from, last);
+
+    const artists = data.stars.length + data.dust.length;
+    const steps = [{
+      eyebrow: "Your story", title: `${ui.format.month(data.start)} → today`, view: "home",
+      meta: `${ui.format.count(artists, "artist")} · ${ui.format.count(data.plays, "play")} · ${ui.format.hours(data.hours)}`,
+    }];
+    pieces.forEach((piece, i) => {
+      if (!Array.isArray(piece)) {
+        steps.push({
+          eyebrow: spanText(piece.from, piece.to), title: `${ui.format.duration(piece.to - piece.from + 1)} without plays`,
+          meta: piece.to < last ? `Then, in ${ui.format.month(ui.monthStart(piece.to + 1))}, you came back` : "",
+          span: [piece.from, piece.to], gap: true,
+        });
+        return;
+      }
+      const [a, b] = piece;
+      const plays = playsBetween(data.months, a, b);
+      const top = starInfo.map((info) => [info, playsBetween(info.artist.months, a, b)])
+        .filter(([, n]) => n > 0).sort((x, y) => y[1] - x[1]).slice(0, 3);
+      const when = i === 0 ? " · where it began" : b === last ? " · now" : "";
+      steps.push({
+        eyebrow: spanText(a, b) + when,
+        title: !top.length ? ui.format.count(plays, "play")
+          : top[0][1] >= plays * 0.3 ? `${top[0][0].artist.name} on repeat` : `Mostly ${top[0][0].artist.name}`,
+        meta: [ui.format.count(plays, "play"), ...top.map(([info, n]) => `${info.artist.name} ${n.toLocaleString("en-US")}`)].join(" · "),
+        span: [a, b],
+      });
+    });
+    steps.push({
+      eyebrow: "Today", title: `${ui.format.count(artists, "artist")}, ${ui.format.hours(data.hours)}`,
+      meta: "And it keeps growing as you listen", view: "home",
+    });
+    return steps;
+  }
+
+  // Where the camera goes for a step: the overview, or the stretch of arm the chapter covers, fitted into view
+  function showStep(step) {
+    const seconds = calm ? 0.001 : 2.2;
+    if (step.view === "home") return flyTo(home.target, home.distance, home.dir, seconds);
+    const [a, b] = step.span;
+    const fa = frac(ui.monthStart(a)), fb = frac(ui.monthStart(b + 1));
+    const points = [];
+    for (let i = 0; i <= 24; i++) for (const side of [-1, 1.35]) points.push({ p: onArm(fa + ((fb - fa) * i) / 24, side) });
+    const target = points.reduce((sum, { p }) => sum.add(p), new THREE.Vector3()).divideScalar(points.length);
+    const dir = niceDirection();
+    insets = measureInsets(false);
+    flyTo(target, THREE.MathUtils.clamp(fitDistance(points, target, dir, insets, 40), 70, controls.maxDistance), dir, seconds);
+  }
+
+  let tour = null; // { steps, index, paused, timers }
+  function startTour() {
+    if (system) leaveSystem();
+    ui.card.hide();
+    tour = { steps: storySteps(), index: -1, paused: false, timers: [] };
+    userMoved = true; // the story's views aren't ones to keep fitted
+    nextStep();
+  }
+  function clearTimers() {
+    for (const t of tour.timers) clearTimeout(t);
+    tour.timers = [];
+  }
+  // Plays the current step: the time strip walks through the chapter's months, then the story moves on
+  function playStep() {
+    clearTimers();
+    const step = tour.steps[tour.index];
+    const hold = step.view ? 4500 : step.gap ? 5000 : 7000;
+    if (step.gap) scrubber.set(step.span[0]);
+    else if (step.span) {
+      const months = data.months.map(([m]) => m).filter((m) => m >= step.span[0] && m <= step.span[1]);
+      months.forEach((m, i) => tour.timers.push(setTimeout(() => scrubber.set(m), 400 + (i * (hold - 900)) / months.length)));
+    } else scrubber.release();
+    if (!tour.paused) tour.timers.push(setTimeout(nextStep, hold));
+  }
+  function nextStep() {
+    if (tour.index + 1 >= tour.steps.length) return endTour();
+    tour.index++;
+    const step = tour.steps[tour.index];
+    ui.story.show(step, [tour.index, tour.steps.length], {
+      paused: tour.paused,
+      onPause: () => {
+        tour.paused = !tour.paused;
+        ui.story.setPaused(tour.paused);
+        if (tour.paused) clearTimers();
+        else playStep();
+      },
+      onSkip: nextStep,
+      onEnd: () => endTour(),
+    });
+    showStep(step);
+    playStep();
+  }
+  function endTour({ flyHome = true } = {}) {
+    if (!tour) return;
+    clearTimers();
+    tour = null;
+    ui.story.hide();
+    scrubber.release();
+    insets = measureInsets(!!system);
+    if (flyHome && !system) {
+      userMoved = false;
+      flyTo(home.target, home.distance, home.dir);
+    }
+  }
+  ui.setupStoryButton(startTour);
 
   // ---------- search ----------
 
