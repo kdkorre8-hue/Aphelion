@@ -98,6 +98,27 @@ export function setupHeader(data, onHome) {
   $("brand").onclick = onHome;
 }
 
+// Buttons for the view: back to the whole galaxy, zoom, full screen (each also on a key)
+export function setupControls({ onHome, onZoom, onFullscreen }) {
+  const button = (name, label, onClick, className = "") => {
+    const b = el("button", className);
+    b.type = "button";
+    b.title = label;
+    b.setAttribute("aria-label", label.replace(/ \(.*\)$/, ""));
+    b.append(icon(name));
+    b.onclick = onClick;
+    return b;
+  };
+  const items = [
+    button("home", "The whole galaxy (H)", onHome),
+    el("div", "rule zoom"),
+    button("plus", "Zoom in (+)", () => onZoom(0.7), "zoom"),
+    button("minus", "Zoom out (−)", () => onZoom(1 / 0.7), "zoom"),
+  ];
+  if (document.fullscreenEnabled) items.push(el("div", "rule"), button("fullscreen", "Full screen (F)", onFullscreen));
+  $("controls").replaceChildren(...items);
+}
+
 // The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale)
 export function setupLegend(heat) {
   const longest = heat.at(-1)[0];
