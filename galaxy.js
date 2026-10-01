@@ -18,6 +18,7 @@ import * as ui from "./ui.js";
 import { setupSearch } from "./search.js";
 import { setupScrubber } from "./scrubber.js";
 import { FORMATS, composePoster, setupShare } from "./poster.js";
+import { setupRecency } from "./recency.js";
 
 const TURNS = 2;                 // how many times the timeline winds around the center
 const INNER_RADIUS = 20;         // where your first play is
@@ -833,7 +834,8 @@ async function main() {
 
   function visit(info, { seconds = 1.6 } = {}) {
     if (tour) endTour({ flyHome: false });
-    scrubber.release(); // the strip hides while you visit
+    scrubber.release(); // the strip and the filter are for the overview
+    recency.clear();
     closeSystem();
     system = openSystem(info);
     openClearing(info.position, system.extent + 6);
@@ -945,7 +947,8 @@ async function main() {
 
   ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
   const keys = {
-    Escape: () => (tour ? endTour() : ui.card.isOpen ? ui.card.hide() : selected ? clearSong() : system ? goHome() : scrubber.release()), // one step back at a time
+    Escape: () => (tour ? endTour() : ui.card.isOpen ? ui.card.hide() : selected ? clearSong() : system ? goHome()
+      : recency.active ? recency.clear() : scrubber.release()), // one step back at a time
     h: showWholeGalaxy,
     "+": () => zoom(0.7), "=": () => zoom(0.7),
     "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
@@ -1013,7 +1016,7 @@ async function main() {
     if (hovered?.kind === "star") {
       setStarSize(hovered, 1);
       hovered.name.element.classList.remove("lit");
-      if (!system && !timeFocus) setEmphasis(null);
+      if (!system && !timeFocus && !recency.active) setEmphasis(null);
     }
     if (hovered?.planet) highlightSong(hovered.song, false);
     if (hovered?.kind === "song") ui.highlightRow(hovered.song, false);
@@ -1027,7 +1030,7 @@ async function main() {
     if (item.kind === "star") {
       setStarSize(item, 1.35);
       item.name.element.classList.add("lit");
-      if (!system && !timeFocus) setEmphasis((info) => (info === item ? 1 : 0)); // the rest of the galaxy steps back
+      if (!system && !timeFocus && !recency.active) setEmphasis((info) => (info === item ? 1 : 0)); // the rest of the galaxy steps back
       if (system?.info !== item) hoverEra = makeEra(item);
     }
     if (item.planet) highlightSong(item.song, true);
@@ -1094,12 +1097,27 @@ async function main() {
       topIn.has(m) && `most played: ${topIn.get(m)[0]}`,
     ].filter(Boolean).join(" · "),
     onChange(m) {
+      if (m !== null) recency.clear({ quiet: true }); // one way of picking stars at a time
       timeFocus = m !== null;
       monthMarker.visible = timeFocus;
       if (!timeFocus) return setEmphasis(null);
       const start = ui.monthStart(m), end = ui.monthStart(m + 1);
       setEmphasis((info) => (monthsOf.get(info).has(m) ? 1 : 0), (artist) => (artist.first < end && artist.last >= start ? 1 : 0));
       monthMarker.position.copy(onArm(frac(start + 15 * DAY)));
+    },
+  });
+
+  // ---------- by when you last played them ----------
+
+  // Brushing the legend's color bar (or a preset under it) lights the artists you last played that long ago
+  const recency = setupRecency({
+    longest: HEAT.at(-1)[0],
+    count: (a, b) => [...data.stars, ...data.dust].filter((artist) => { const d = daysAgo(artist.last); return d >= a && d < b; }).length,
+    onChange(a, b) {
+      if (a === undefined || a === null) return setEmphasis(null);
+      scrubber.release();
+      const lit = (artist) => { const d = daysAgo(artist.last); return d >= a && d < b ? 1 : 0; };
+      setEmphasis((info) => lit(info.artist), lit);
     },
   });
 
