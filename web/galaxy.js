@@ -463,11 +463,15 @@ async function main() {
       // need 1.6x their radii apart or they seem to crash into each other when one overtakes the other
       orbit += 1.7 * (previous + size) + 0.4;
       previous = size;
-      const ring = new THREE.EllipseCurve(0, 0, orbit, orbit).getPoints(160).map((p) => new THREE.Vector3(p.x, 0, p.y));
-      orbits.add(new THREE.LineLoop(
-        new THREE.BufferGeometry().setFromPoints(ring),
-        new THREE.LineBasicMaterial({ color: info.color, transparent: true, opacity: 0.07, depthWrite: false }),
-      ));
+      // its orbit: fainter the less you played the song, so 20 rings don't all shout at once
+      const path = new THREE.EllipseCurve(0, 0, orbit, orbit).getPoints(160).map((p) => new THREE.Vector3(p.x, 0, p.y));
+      const orbitOpacity = 0.03 + 0.09 * Math.sqrt(song.plays / maxPlays);
+      const orbitLine = new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(path),
+        new THREE.LineBasicMaterial({ color: info.color, transparent: true, opacity: orbitOpacity, depthWrite: false }),
+      );
+      orbitLine.userData.opacity = orbitOpacity;
+      orbits.add(orbitLine);
       const pivot = new THREE.Object3D();
       pivot.rotation.y = rand() * Math.PI * 2;
       orbits.add(pivot);
@@ -491,6 +495,7 @@ async function main() {
       planet.add(tag);
       planet.userData.tag = tag;
       planet.userData.named = named.has(song);
+      planet.userData.orbit = orbitLine;
     }
 
     // Songs you played less: an asteroid belt
@@ -545,6 +550,8 @@ async function main() {
     const planet = system?.meshes.get(song);
     if (!planet || (!on && song === selected)) return;
     planet.scale.setScalar(on ? 1.25 : 1);
+    const { orbit } = planet.userData;
+    orbit.material.opacity = on ? 0.35 : orbit.userData.opacity;
     planet.userData.tag.visible = on || (planet.userData.named && namesOn);
     planet.userData.tag.element.classList.toggle("lit", on);
   }
