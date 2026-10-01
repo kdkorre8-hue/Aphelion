@@ -158,6 +158,28 @@
       border-radius: 8px; cursor: pointer; font-size: var(--fs-small); }
     .songs li:hover { background: rgba(255, 255, 255, 0.06); }
     .songs li.lit { background: rgba(255, 255, 255, 0.08); box-shadow: inset 2px 0 0 var(--planet); } /* you point at its planet */
+    .songs li.selected { background: rgba(255, 255, 255, 0.1); box-shadow: inset 2px 0 0 var(--planet); }
+
+    /* the song you clicked */
+    .song-card { margin: 10px 0 12px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
+      box-shadow: inset 3px 0 0 var(--planet); scroll-margin: 16px; }
+    .song-card-top { display: grid; grid-template-columns: 48px 1fr 28px; align-items: center; gap: 12px; }
+    .song-card .song-art { width: 48px; height: 48px; }
+    .song-card .song-art:has(img) { border-radius: 8px; }
+    .song-card-head { min-width: 0; } /* so a long album name shortens instead of widening the card */
+    .song-card-title { font: var(--type-subheading); overflow-wrap: anywhere; }
+    .song-card-meta { margin-top: 3px; font-size: var(--fs-caption); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .song-card-clear { align-self: start; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06); color: var(--muted); cursor: pointer; }
+    .song-card-clear:hover { background: rgba(255, 255, 255, 0.14); color: var(--text); }
+    .song-card-facts { margin: 10px 0 12px; font-size: var(--fs-caption); color: var(--muted); }
+
+    /* buttons that do something: the main one is solid ice white, the only filled thing on the page */
+    .button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 15px 8px 13px; border: 0;
+      border-radius: 999px; font-size: var(--fs-small); font-weight: 500; cursor: pointer; background: rgba(255, 255, 255, 0.08); }
+    .button:hover { background: rgba(255, 255, 255, 0.14); }
+    .button.primary { background: var(--interactive); color: #0d0f1e; }
+    .button.primary:hover { background: #fff; }
     .song-rank { color: var(--faint); font-variant-numeric: tabular-nums; font-size: var(--fs-caption); }
     /* a little planet in the song's planet color, lit from the top left; or its album art, ringed in that color */
     .song-art { width: 22px; height: 22px; border-radius: 50%; overflow: hidden;
@@ -183,6 +205,16 @@
     .tip-title { font-weight: 600; font-size: var(--fs-body); }
     .tip-meta { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }
     .tip-hint { color: var(--interactive); font-size: var(--fs-caption); font-weight: 500; margin-top: 5px; }
+
+    /* a card for something you clicked that has no page of its own, pinned where you clicked */
+    #card { z-index: 15; display: flex; gap: 12px; align-items: flex-start; max-width: 340px; padding: 14px 16px; border-radius: 14px;
+      background: var(--glass-strong); }
+    #card img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex: none; }
+    #card .tip-text { padding-right: 22px; }
+    .card-close { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; display: grid; place-items: center; border: 0;
+      border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+    .card-close:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+    .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
     /* hint */
     #hint { position: fixed; z-index: 10; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 16px; border-radius: 999px;
@@ -231,6 +263,7 @@
       #crumb-name { max-width: 52vw; }
       #hint, body.visiting #legend { display: none; }
       #legend { left: 12px; bottom: 12px; width: min(290px, calc(100vw - 24px)); }
+      #card { left: 12px !important; right: 12px; top: auto !important; bottom: 12px; max-width: none; } /* docked, not pinned */
       #panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 52vh; transform: translateY(16px); }
       #controls .zoom, body.visiting #controls { display: none; } /* pinch to zoom; the sheet covers the corner */
     }
@@ -285,6 +318,7 @@
 
   <div id="hint"><b>Drag</b> to orbit · <b>scroll</b> to zoom · <b>click a star</b> to fly in</div>
   <div id="tooltip" class="glass"></div>
+  <div id="card" class="glass" role="dialog" hidden></div>
   <div class="vignette"></div>
   <div id="loading"><div class="loader"><svg class="mark" aria-hidden="true"><use href="#mark"/></svg>Building your galaxy…</div></div>
   <div id="message" hidden></div>

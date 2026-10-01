@@ -207,41 +207,53 @@ export function hideCrumb() {
 
 // ---------- tooltip ----------
 
+// What a star, a speck of dust or a song is: a title and a line or two, for the tooltip and the card.
+// item: { kind: "star" | "dust" | "song", artist, song?, asteroid? }; ago: time -> days since
+function describe(item, ago) {
+  const a = item.artist;
+  if (item.kind === "song") {
+    const s = item.song;
+    return {
+      image: s.image, title: s.name,
+      lines: [`${a.name}${s.album ? ` · ${s.album}` : ""}`, `${format.count(s.plays, "play")} · ${format.hours(s.minutes / 60)} · last played ${format.ago(ago(s.last))}`],
+    };
+  }
+  return {
+    title: a.name,
+    lines: [
+      `${format.hours(a.hours)} · ${format.count(a.plays, "play")} · ${format.count(a.song_count, "song")}`,
+      item.kind === "star"
+        ? `Most played in ${format.month(a.peak)} · last played ${format.ago(ago(a.last))}`
+        : `Last played ${format.ago(ago(a.last))} · top song: ${a.top_song.name}`,
+    ],
+  };
+}
+
+function describeInto(box, item, ago) {
+  const { image, title, lines } = describe(item, ago);
+  if (image) {
+    const img = el("img");
+    img.src = image;
+    img.alt = "";
+    box.append(img);
+  }
+  const text = el("div", "tip-text");
+  text.append(el("div", "tip-title", title), ...lines.map((line) => el("div", "tip-meta", line)));
+  box.append(text);
+  return text;
+}
+
 const tip = $("tooltip");
 let tipAbove = false;
 
 export const tooltip = {
-  // item: { kind: "star" | "dust" | "song", artist, song?, asteroid? }; ago: time -> days since
   show(item, { ago, visiting }) {
     tipAbove = item.kind !== "song"; // star names hang below their stars, planet names sit above their planets
     tip.replaceChildren();
-    const text = el("div", "tip-text");
-    const add = (content, className) => text.append(el("div", className, content));
-    const a = item.artist;
-    if (item.kind === "song") {
-      const s = item.song;
-      if (s.image) {
-        const img = el("img");
-        img.src = s.image;
-        img.alt = "";
-        tip.append(img);
-      }
-      add(s.name, "tip-title");
-      add(`${a.name}${s.album ? ` · ${s.album}` : ""}`, "tip-meta");
-      add(`${format.count(s.plays, "play")} · ${format.hours(s.minutes / 60)} · last played ${format.ago(ago(s.last))}`, "tip-meta");
-      add(item.asteroid ? "Asteroid belt: songs you played less · click to open" : "Click to open in Spotify", "tip-hint");
-    } else {
-      add(a.name, "tip-title");
-      add(`${format.hours(a.hours)} · ${format.count(a.plays, "play")} · ${format.count(a.song_count, "song")}`, "tip-meta");
-      if (item.kind === "star") {
-        add(`Most played in ${format.month(a.peak)} · last played ${format.ago(ago(a.last))}`, "tip-meta");
-        if (!visiting) add("Click to fly in", "tip-hint");
-      } else {
-        add(`Last played ${format.ago(ago(a.last))} · top song: ${a.top_song.name}`, "tip-meta");
-        add("Click to play the top song in Spotify", "tip-hint");
-      }
-    }
-    tip.append(text);
+    const text = describeInto(tip, item, ago);
+    const hint = item.kind === "star" ? !visiting && "Click to fly in"
+      : item.asteroid ? "Asteroid belt: songs you played less · click for details" : "Click for details";
+    if (hint) text.append(el("div", "tip-hint", hint));
     tip.classList.add("shown");
   },
   // Beside the pointer, on the side away from the name of what you point at (flipped if there's no room)
@@ -256,6 +268,54 @@ export const tooltip = {
     tip.classList.remove("shown");
   },
 };
+
+// ---------- card ----------
+
+// A small card for something you clicked that has no page of its own, like a speck of dust: what it is, and
+// buttons for what you can do with it. Pinned where you clicked (docked at the bottom on phones); Escape, its
+// close button or a click anywhere else closes it.
+const cardBox = $("card");
+
+export const card = {
+  // actions: [{ label, icon, primary, external, onClick }]
+  show(item, { x, y, ago, actions }) {
+    cardBox.replaceChildren();
+    const close = el("button", "card-close");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close");
+    close.append(icon("close"));
+    close.onclick = () => card.hide();
+    const text = describeInto(cardBox, item, ago);
+    const buttons = el("div", "card-actions");
+    for (const action of actions) {
+      const b = el("button", action.primary ? "button primary" : "button");
+      b.type = "button";
+      b.append(...(action.icon ? [icon(action.icon)] : []), action.label, ...(action.external ? [icon("external")] : []));
+      b.onclick = () => {
+        card.hide();
+        action.onClick();
+      };
+      buttons.append(b);
+    }
+    text.append(buttons);
+    cardBox.prepend(close);
+    cardBox.hidden = false;
+    cardBox.setAttribute("aria-label", describe(item, ago).title);
+    const width = cardBox.offsetWidth, height = cardBox.offsetHeight;
+    const above = y - 16 - height;
+    cardBox.style.left = `${Math.max(12, Math.min(x + 16, window.innerWidth - width - 12))}px`;
+    cardBox.style.top = `${Math.max(12, Math.min(above >= 12 ? above : y + 16, window.innerHeight - height - 12))}px`;
+  },
+  hide() {
+    cardBox.hidden = true;
+  },
+  get isOpen() {
+    return !cardBox.hidden;
+  },
+};
+document.addEventListener("pointerdown", (e) => {
+  if (card.isOpen && !cardBox.contains(e.target)) card.hide();
+}, true);
 
 // ---------- artist panel ----------
 
@@ -400,7 +460,7 @@ function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onS
   bar.style.width = `${Math.max(2, (song.plays / mostPlays) * 100)}%`;
   text.append(el("span", "song-name", song.name), bar);
   item.append(el("span", "song-rank", String(rank)), art, text, el("span", "song-plays", format.compact(song.plays)));
-  item.title = `${song.name} · ${format.count(song.plays, "play")} · click to open in Spotify`;
+  item.title = `${song.name} · ${format.count(song.plays, "play")}`;
   item.onmouseenter = () => onSongEnter(song);
   item.onmouseleave = () => onSongLeave(song);
   item.onclick = () => onSongClick(song);
@@ -410,6 +470,47 @@ function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onS
 // Pointing at a planet (or an asteroid) lights up its song in the list
 export function highlightRow(song, on) {
   songRows.get(song)?.classList.toggle("lit", on);
+}
+
+// The song you clicked, in a card at the top of the list: its art or planet, album, plays and dates, and a
+// button to play it in Spotify. Going to Spotify is always a button you press, never a click in the galaxy.
+let songSlot = null; // where the card goes in the open panel
+const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+export function showSong(song, artist, { ago, colorOf, onPlay, onClear }) {
+  const card = el("div", "song-card");
+  card.style.setProperty("--planet", colorOf(song));
+  const art = el("span", "song-art");
+  if (song.image) {
+    const img = el("img");
+    img.src = song.image;
+    img.alt = "";
+    art.append(img);
+  }
+  const head = el("div", "song-card-head");
+  head.append(el("div", "song-card-title", song.name), el("div", "song-card-meta", [artist.name, song.album].filter(Boolean).join(" · ")));
+  const clear = el("button", "song-card-clear");
+  clear.type = "button";
+  clear.setAttribute("aria-label", "Close the song");
+  clear.append(icon("close"));
+  clear.onclick = onClear;
+  const top = el("div", "song-card-top");
+  top.append(art, head, clear);
+  const facts = el("p", "song-card-facts",
+    `${format.count(song.plays, "play")} · ${format.hours(song.minutes / 60)} · first played ${format.month(song.first)} · last played ${format.ago(ago(song.last))}`);
+  const play = el("button", "button primary");
+  play.type = "button";
+  play.append(icon("play"), "Play in Spotify", icon("external"));
+  play.onclick = () => onPlay(song);
+  card.append(top, facts, play);
+  songSlot.replaceChildren(card);
+  for (const [s, row] of songRows) row.classList.toggle("selected", s === song);
+  card.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" });
+}
+
+export function clearSong() {
+  songSlot?.replaceChildren();
+  for (const row of songRows.values()) row.classList.remove("selected");
 }
 
 export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
@@ -437,6 +538,8 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
   range.append(el("span", "", format.month(data.start)), el("span", "", "today"));
   const readout = el("div", "timeline-readout");
   chart.append(canvas, range, readout);
+
+  songSlot = el("div", "song-slot");
 
   // The top 10, and the rest on request
   const list = el("ol", "songs");
@@ -471,6 +574,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
     el("div", "section-title", "When you listened"),
     chart,
     el("div", "section-title", "Top songs"),
+    songSlot,
     list,
     ...(more ? [more] : []),
     link,
