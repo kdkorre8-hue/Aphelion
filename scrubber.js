@@ -142,5 +142,5 @@ export function setupScrubber({ timeline, data, colorAt, describe, onChange }) {
   window.addEventListener("resize", draw);
   requestAnimationFrame(draw);
 
-  return { release, get month() { return month; } };
+  return { set, release, get month() { return month; } };
 }
