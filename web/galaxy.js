@@ -126,6 +126,10 @@ function dispose(object) {
 // ---------- scene ----------
 
 async function main() {
+  // The arrival from afar, unless you'd rather have less motion or a link takes you straight to a star: the
+  // page's own parts wait for it from the start, under the loading screen
+  const introduce = !calm && !location.hash.startsWith("#/artist/");
+  if (introduce) ui.startIntro();
   let data;
   try {
     data = await (await fetch("galaxy.json")).json();
@@ -469,6 +473,7 @@ async function main() {
     const maxPlays = Math.max(...planetSongs.map((s) => s.plays));
     const named = new Set(artist.songs.slice(0, PLANET_LABELS));
     const targets = [], meshes = new Map(), colors = new Map(); // song -> its planet, its planet's color
+    const build = { start: Infinity, items: [], belt: null }; // see buildSystem
     let orbit = sunRadius * 1.8 + 0.8, previous = 0;
     for (const song of planetSongs) {
       const size = 0.35 + 1.0 * Math.sqrt(song.plays / maxPlays);
@@ -479,7 +484,7 @@ async function main() {
       // its orbit: fainter the less you played the song, so 20 rings don't all shout at once
       const path = new THREE.EllipseCurve(0, 0, orbit, orbit).getPoints(160).map((p) => new THREE.Vector3(p.x, 0, p.y));
       const orbitOpacity = 0.03 + 0.09 * Math.sqrt(song.plays / maxPlays);
-      const orbitLine = new THREE.LineLoop(
+      const orbitLine = new THREE.Line( // the path ends where it starts, and can be drawn partway
         new THREE.BufferGeometry().setFromPoints(path),
         new THREE.LineBasicMaterial({ color: info.color, transparent: true, opacity: orbitOpacity, depthWrite: false }),
       );
@@ -509,6 +514,7 @@ async function main() {
       planet.userData.tag = tag;
       planet.userData.named = named.has(song);
       planet.userData.orbit = orbitLine;
+      build.items.push({ orbit: orbitLine, planet });
     }
 
     // Songs you played less: an asteroid belt
@@ -520,7 +526,7 @@ async function main() {
       const belt = new THREE.InstancedMesh(
         new THREE.IcosahedronGeometry(1, 0),
         // a faint glow of their own, or the rocks on the far side of the sun disappear
-        new THREE.MeshStandardMaterial({ color: beltColor, emissive: beltColor, emissiveIntensity: 0.3, roughness: 1, flatShading: true }),
+        new THREE.MeshStandardMaterial({ color: beltColor, emissive: beltColor, emissiveIntensity: 0.3, roughness: 1, flatShading: true, transparent: true }),
         beltSongs.length,
       );
       const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
@@ -535,6 +541,7 @@ async function main() {
         colors.set(song, `#${beltColor.getHexString()}`);
       });
       belt.userData = { kind: "belt", songs: beltSongs, artist };
+      build.belt = belt;
       orbits.add(belt);
       planets.push({ pivot: belt, speed: (ORBIT_SPEED * 0.4) / Math.sqrt(beltRadius) });
       targets.push(belt);
@@ -548,7 +555,35 @@ async function main() {
       const angle = (i / 32) * Math.PI * 2;
       return { p: new THREE.Vector3(Math.cos(angle) * extent, 0, Math.sin(angle) * extent).applyMatrix4(orbits.matrixWorld) };
     });
-    return { info, group, sun, glow, targets, meshes, colors, byRank, extent, ring, era: makeEra(info) };
+    return { info, group, sun, glow, targets, meshes, colors, byRank, extent, ring, build: calm ? null : build, era: makeEra(info) };
+  }
+
+  // A system builds itself as you arrive: its orbits draw out from the sun, innermost first, and each planet
+  // grows in with a little overshoot just after its orbit, then gets its name; the asteroid belt fades in last
+  const easeOutBack = (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2);
+  function buildSystem(now) {
+    const { build } = system;
+    const time = (now - build.start) / 1000;
+    let done = true;
+    build.items.forEach(({ orbit, planet }, i) => {
+      const draw = THREE.MathUtils.clamp((time - i * 0.035) / 0.5, 0, 1);
+      orbit.geometry.setDrawRange(0, Math.ceil(orbit.geometry.attributes.position.count * (1 - Math.pow(1 - draw, 3))));
+      const grow = THREE.MathUtils.clamp((time - 0.15 - i * 0.04) / 0.45, 0, 1);
+      planet.userData.grow = easeOutBack(grow);
+      planet.scale.setScalar(Math.max(1e-3, planet.userData.grow) * (planet.userData.lit ? 1.25 : 1));
+      planet.userData.tag.visible = grow === 1 && (planet.userData.lit || (planet.userData.named && namesOn));
+      if (grow < 1) done = false;
+    });
+    if (build.belt) {
+      const fade = THREE.MathUtils.clamp((time - 0.3 - build.items.length * 0.04) / 0.6, 0, 1);
+      build.belt.material.opacity = fade;
+      if (fade < 1) done = false;
+      else {
+        build.belt.material.transparent = false;
+        build.belt.material.needsUpdate = true;
+      }
+    }
+    if (done) system.build = null;
   }
 
   function closeSystem() {
@@ -566,7 +601,8 @@ async function main() {
   function highlightSong(song, on) {
     const planet = system?.meshes.get(song);
     if (!planet || (!on && song === selected)) return;
-    planet.scale.setScalar(on ? 1.25 : 1);
+    planet.userData.lit = on;
+    planet.scale.setScalar((on ? 1.25 : 1) * (planet.userData.grow ?? 1));
     const { orbit } = planet.userData;
     orbit.material.opacity = on ? 0.35 : orbit.userData.opacity;
     planet.userData.tag.visible = on || (planet.userData.named && namesOn);
@@ -816,6 +852,7 @@ async function main() {
     const dir = niceDirection();
     userMoved = false;
     flyTo(info.position, fitDistance(system.ring, info.position, dir, insets), dir, seconds);
+    if (system.build) system.build.start = performance.now() + seconds * 550;
   }
 
   // The stars in the order of your timeline, from your first plays to today: the one before and after the
@@ -1055,7 +1092,8 @@ async function main() {
     camera.position.copy(home.dir).multiplyScalar(home.distance);
   } else {
     camera.position.copy(home.dir).applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.7).multiplyScalar(home.distance * 2.4);
-    flyTo(home.target, home.distance, home.dir, 3.2);
+    if (introduce) setTimeout(ui.reveal, 3800); // in case something else takes over the flight
+    flyTo(home.target, home.distance, home.dir, 3.2, ui.reveal);
   }
   ui.setupHint(renderer.domElement);
   window.addEventListener("resize", reframe);
@@ -1085,6 +1123,7 @@ async function main() {
     stars.uniforms.focus.value += (focusWanted - stars.uniforms.focus.value) * (calm ? 1 : Math.min(1, dt * 8));
     armLine.material.opacity += ((system ? 0 : ARM_LINE_OPACITY) - armLine.material.opacity) * fade; // it would cut through the system
     if (system) system.sun.material.uniforms.time.value = now / 1000;
+    if (system?.build) buildSystem(now);
 
     if (flight) {
       flight.t = Math.min(flight.t + dt / flight.seconds, 1);
