@@ -280,10 +280,12 @@ export const tooltip = {
 // buttons for what you can do with it. Pinned where you clicked (docked at the bottom on phones); Escape, its
 // close button or a click anywhere else closes it.
 const cardBox = $("card");
+let cardItem = null, cardClosedAt = -Infinity;
 
 export const card = {
-  // actions: [{ label, icon, primary, external, onClick }]
+  // actions: [{ label, icon, iconAfter, primary, onClick }]
   show(item, { x, y, ago, actions }) {
+    cardItem = item;
     cardBox.replaceChildren();
     const close = el("button", "card-close");
     close.type = "button";
@@ -295,7 +297,7 @@ export const card = {
     for (const action of actions) {
       const b = el("button", action.primary ? "button primary" : "button");
       b.type = "button";
-      b.append(...(action.icon ? [icon(action.icon)] : []), action.label, ...(action.external ? [icon("external")] : []));
+      b.append(...(action.icon ? [icon(action.icon)] : []), action.label, ...(action.iconAfter ? [icon(action.iconAfter)] : []));
       b.onclick = () => {
         card.hide();
         action.onClick();
@@ -312,10 +314,16 @@ export const card = {
     cardBox.style.top = `${Math.max(12, Math.min(above >= 12 ? above : y + 16, window.innerHeight - height - 12))}px`;
   },
   hide() {
+    if (cardBox.hidden) return;
     cardBox.hidden = true;
+    cardClosedAt = performance.now();
   },
   get isOpen() {
     return !cardBox.hidden;
+  },
+  // Was the card showing this item a moment ago? Then a tap on it was a second tap, closing the card on the way.
+  justShowed(item) {
+    return cardItem === item && performance.now() - cardClosedAt < 800;
   },
 };
 document.addEventListener("pointerdown", (e) => {
