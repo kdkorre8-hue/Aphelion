@@ -10,18 +10,20 @@ function el(tag, className, text) {
 
 // ---------- time and number formatting ----------
 
+const LOCALE = "en-US"; // the page is in English, so numbers and dates are written the English way
+
 export const monthNumber = (time) => { const d = new Date(time * 1000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
 export const monthStart = (month) => Date.UTC(Math.floor(month / 12), month % 12, 1) / 1000;
 
 export const format = {
-  month: (time) => new Date(time * 1000).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }),
-  hours: (hours) => (hours >= 1 ? `${Math.round(hours).toLocaleString()} h` : `${Math.max(1, Math.round(hours * 60))} min`),
-  count: (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`,
+  month: (time) => new Date(time * 1000).toLocaleDateString(LOCALE, { month: "short", year: "numeric", timeZone: "UTC" }),
+  hours: (hours) => (hours >= 1 ? `${Math.round(hours).toLocaleString(LOCALE)} h` : `${Math.max(1, Math.round(hours * 60))} min`),
+  count: (n, word) => `${n.toLocaleString(LOCALE)} ${word}${n === 1 ? "" : "s"}`,
   duration(months) {
     const years = Math.floor(months / 12), rest = months % 12;
     return [years && `${years} year${years > 1 ? "s" : ""}`, rest && `${rest} month${rest > 1 ? "s" : ""}`].filter(Boolean).join(", ");
   },
-  compact: (n) => (n >= 10_000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : n.toLocaleString()),
+  compact: (n) => (n >= 10_000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : n.toLocaleString(LOCALE)),
   ago(days) {
     if (days < 1) return "today";
     if (days < 2) return "yesterday";
