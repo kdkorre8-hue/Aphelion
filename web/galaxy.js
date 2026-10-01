@@ -342,8 +342,11 @@ async function main() {
     scene.add(...timeLabels);
   }
 
-  // Smooth edges, and one tone-mapping step for everything so glows stay soft
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+  // Smooth edges, and one tone-mapping step for everything so glows stay soft. Multisampling is the most
+  // expensive part of a frame, and screens with small pixels need less of it (none at 2x, where it costs 5x the frame)
+  const ratio = renderer.getPixelRatio();
+  const samples = ratio >= 2 ? 0 : ratio > 1 ? 2 : 4;
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples }));
   composer.addPass(new RenderPass(scene, camera));
   composer.addPass(new OutputPass());
 
