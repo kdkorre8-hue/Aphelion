@@ -693,9 +693,9 @@ async function main() {
     const hint = document.getElementById("hint").getBoundingClientRect();
     if (hint.height) free.bottom = window.innerHeight - hint.top + 8;
     const panel = document.getElementById("panel");
-    if (visiting && !panel.hidden) {
-      if (phone.matches) free.bottom = panel.offsetHeight + 20; // the sheet sits 12px from the bottom
-      else free.right = panel.offsetWidth + 40; // the panel sits 20px from the edge
+    if (visiting && !panel.hidden) { // (offsetTop and offsetLeft leave out the panel's slide-in)
+      if (phone.matches) free.bottom = window.innerHeight - panel.offsetTop + 8;
+      else free.right = window.innerWidth - panel.offsetLeft + 20;
     }
     return free;
   }
@@ -746,7 +746,8 @@ async function main() {
   function reframe() {
     insets = measureInsets(!!system);
     frameHome();
-    if (userMoved) return;
+    // and not when there's hardly any room left, as with the artist sheet pulled all the way up on a phone
+    if (userMoved || window.innerHeight - insets.top - insets.bottom < 120) return;
     const target = system ? system.info.position : home.target;
     const dir = flight ? flight.dir : camera.position.clone().sub(controls.target).normalize();
     const distance = system ? fitDistance(system.ring, target, dir, insets) : home.distance;
@@ -796,6 +797,7 @@ async function main() {
       colorOf,
       timeline,
       onClose: goHome,
+      onSheet: reframe, // on phones: the sheet changed height, so the system fits a different space
       onSongEnter: (song) => highlightSong(song, true),
       onSongLeave: (song) => highlightSong(song, false),
       onSongClick: selectSong,
@@ -925,12 +927,21 @@ async function main() {
     const item = pick(e.clientX, e.clientY);
     if (!item) return;
     setHovered(null);
-    if (item.kind === "star" && system?.info !== item) visit(item);
+    if (item.kind === "star" && system?.info !== item) {
+      // With a finger there's no pointing without touching, so the first tap shows what the star is, and
+      // its Visit button, or a second tap on it, flies in
+      if (e.pointerType === "touch" && !ui.card.justShowed(item)) {
+        ui.card.show(item, {
+          x: e.clientX, y: e.clientY, ago: daysAgo,
+          actions: [{ label: "Visit", iconAfter: "right", primary: true, onClick: () => visit(item) }],
+        });
+      } else visit(item);
+    }
     else if (item.kind === "song") selectSong(item.song);
     else if (item.kind === "dust") {
       ui.card.show(item, {
         x: e.clientX, y: e.clientY, ago: daysAgo,
-        actions: [{ label: "Play the top song", icon: "play", primary: true, external: true, onClick: () => openSong(item.artist.top_song.id) }],
+        actions: [{ label: "Play the top song", icon: "play", iconAfter: "external", primary: true, onClick: () => openSong(item.artist.top_song.id) }],
       });
     }
   });
