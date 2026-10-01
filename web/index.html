@@ -149,7 +149,27 @@
     #legend.collapsed .legend-toggle { position: static; width: auto; height: auto; display: flex; align-items: center; gap: 7px;
       padding: 8px 14px 8px 11px; border-radius: 999px; color: var(--text); font-size: var(--fs-caption); }
     .legend-title, .section-title, .eyebrow { font: var(--type-eyebrow); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
-    .heat-bar { height: 6px; border-radius: 3px; margin: 9px 0 5px; background: var(--heat); }
+    .heat-bar { position: relative; height: 6px; border-radius: 3px; margin: 9px 0 5px; background: var(--heat); cursor: crosshair; touch-action: none; }
+    .heat-bar::after { content: ""; position: absolute; inset: -8px 0; } /* easier to grab than 6px */
+    .heat-bar.filtering { box-shadow: inset 0 0 0 10px rgba(13, 15, 30, 0.6); } /* outside the chosen stretch, dimmed */
+    .heat-band { position: absolute; top: -3px; bottom: -3px; border-radius: 4px; background: var(--heat); background-size: var(--bar-width, 258px) 100%;
+      box-shadow: 0 0 0 1.5px #fff, 0 0 10px rgba(255, 255, 255, 0.4); pointer-events: none; }
+    .recency { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 0; }
+    .recency-preset { padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted);
+      font-size: var(--fs-micro); cursor: pointer; }
+    .recency-preset:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+    .recency-preset[aria-pressed="true"] { color: #0d0f1e; background: var(--interactive); border-color: transparent; }
+    .recency-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; margin-top: 4px;
+      color: var(--faint); font-size: var(--fs-micro); white-space: nowrap; }
+    .recency-status span { overflow: hidden; text-overflow: ellipsis; }
+    .recency-status.active { color: var(--text); }
+    .recency-status:not(.active) .recency-clear { visibility: hidden; }
+    .recency-clear { width: 20px; height: 20px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08); color: var(--muted); cursor: pointer; }
+    .recency-clear:hover { background: rgba(255, 255, 255, 0.16); color: var(--text); }
+    .recency-clear .icon { width: 12px; height: 12px; }
+    body.visiting :is(.recency, .recency-status) { display: none; } /* the filter is for the overview */
+    body.visiting .heat-bar { pointer-events: none; }
     .heat-ticks { position: relative; height: 16px; font-size: var(--fs-micro); }
     .heat-ticks span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
     .heat-ticks span::before { content: ""; position: absolute; left: 50%; top: -6px; width: 1px; height: 4px; background: rgba(233, 235, 245, 0.35); }
@@ -425,7 +445,7 @@
     <button id="legend-toggle" class="legend-toggle" type="button" aria-controls="legend-body"></button>
     <div id="legend-body">
       <div class="legend-title">Last played</div>
-      <div class="heat-bar"></div>
+      <div id="heat-bar" class="heat-bar" title="Drag across to show only the artists you last played then"></div>
       <div id="heat-ticks" class="heat-ticks"></div>
       <ul class="keys" data-for="galaxy">
         <li><span class="key key-star"></span>An artist · bigger = more time listened</li>
