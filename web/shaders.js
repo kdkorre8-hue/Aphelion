@@ -1,4 +1,4 @@
-// Shaders and materials for Heavy Rotation.
+// Shaders and materials for Aphelion.
 // Colors are linear; the OutputPass in galaxy.js tone-maps everything once and turns it into screen colors,
 // which keeps overlapping glows soft instead of blowing out to white.
 import * as THREE from "three";

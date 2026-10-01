@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Heavy Rotation</title>
+  <title>Aphelion</title>
+  <meta name="description" content="Your listening life as a galaxy">
+  <meta name="theme-color" content="#03040a">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
@@ -47,11 +50,7 @@
     /* brand */
     #brand { top: 20px; left: 20px; padding: 16px 18px; max-width: calc(100vw - 40px); }
     .logo { display: flex; align-items: center; gap: 10px; }
-    .mark { position: relative; width: 18px; height: 18px; border-radius: 50%; flex: none;
-      background: conic-gradient(from 200deg, #72d0ff, #c49bff, #ff9fc6, #ffb778, #72d0ff); }
-    .mark::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: #0d0f1e; }
-    .mark::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #fff; z-index: 1;
-      box-shadow: 0 0 8px rgba(142, 197, 255, 0.9); }
+    .mark { width: 22px; height: 22px; flex: none; }
     .wordmark { font: 600 13px/1 var(--display); letter-spacing: 0.22em; text-transform: uppercase; }
     .tagline { margin: 8px 0 12px; color: var(--muted); font-size: 13px; }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -143,9 +142,7 @@
     #loading { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: var(--bg); transition: opacity 0.9s ease 0.1s; }
     #loading.done { opacity: 0; pointer-events: none; }
     .loader { display: grid; justify-items: center; gap: 16px; color: var(--muted); font-size: 13px; }
-    .loader .mark { width: 34px; height: 34px; animation: spin 2.4s linear infinite; }
-    .loader .mark::after { inset: 5px; background: var(--bg); }
-    .loader .mark::before { inset: 13px; }
+    .loader .mark { width: 44px; height: 44px; animation: spin 2.4s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #message { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); background: var(--bg); }
 
@@ -163,8 +160,16 @@
   </style>
 </head>
 <body>
+  <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <!-- the logo: a spiral like the galaxy, warm where your first play is and blue at the tip, today -->
+    <symbol id="mark" viewBox="0 0 32 32">
+      <radialGradient id="mark-glow"><stop offset="0" stop-color="#72d0ff" stop-opacity="0.7"/><stop offset="1" stop-color="#72d0ff" stop-opacity="0"/></radialGradient>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17.14 15.19L17.25 15.24L17.36 15.31L17.46 15.39L17.56 15.48L17.65 15.59L17.74 15.7" stroke="#e37d5d" stroke-width="1.52"/><path d="M17.74 15.7L17.82 15.82L17.89 15.96L17.94 16.1L17.99 16.26L18.03 16.42L18.05 16.58" stroke="#e88862" stroke-width="1.57"/><path d="M18.05 16.58L18.05 16.76L18.05 16.93L18.03 17.11L17.99 17.29L17.93 17.47L17.86 17.66" stroke="#ee9467" stroke-width="1.62"/><path d="M17.86 17.66L17.78 17.83L17.67 18.01L17.55 18.18L17.42 18.34L17.27 18.49L17.1 18.64" stroke="#f39f6d" stroke-width="1.66"/><path d="M17.1 18.64L16.92 18.77L16.73 18.89L16.52 18.99L16.3 19.09L16.07 19.16L15.83 19.22" stroke="#f9aa72" stroke-width="1.71"/><path d="M15.83 19.22L15.58 19.26L15.33 19.27L15.07 19.27L14.8 19.25L14.54 19.21L14.27 19.14" stroke="#feb677" stroke-width="1.76"/><path d="M14.27 19.14L14.01 19.06L13.75 18.95L13.5 18.82L13.25 18.66L13.01 18.49L12.79 18.3" stroke="#ffb385" stroke-width="1.8"/><path d="M12.79 18.3L12.57 18.08L12.37 17.85L12.19 17.59L12.02 17.32L11.87 17.04L11.75 16.74" stroke="#ffaf92" stroke-width="1.85"/><path d="M11.75 16.74L11.65 16.42L11.57 16.1L11.51 15.76L11.48 15.42L11.48 15.07L11.5 14.72" stroke="#ffaba0" stroke-width="1.89"/><path d="M11.5 14.72L11.55 14.36L11.63 14.01L11.74 13.66L11.87 13.32L12.04 12.98L12.23 12.65" stroke="#ffa6ae" stroke-width="1.94"/><path d="M12.23 12.65L12.45 12.33L12.69 12.03L12.96 11.75L13.26 11.48L13.58 11.23L13.92 11.01" stroke="#ffa2bc" stroke-width="1.99"/><path d="M13.92 11.01L14.28 10.81L14.65 10.64L15.05 10.49L15.46 10.38L15.88 10.29L16.31 10.24" stroke="#fc9fc9" stroke-width="2.03"/><path d="M16.31 10.24L16.74 10.22L17.19 10.23L17.63 10.27L18.08 10.36L18.52 10.47L18.95 10.62" stroke="#f19ed3" stroke-width="2.08"/><path d="M18.95 10.62L19.38 10.81L19.79 11.02L20.2 11.28L20.58 11.56L20.95 11.88L21.29 12.22" stroke="#e79ddd" stroke-width="2.13"/><path d="M21.29 12.22L21.61 12.6L21.9 13L22.17 13.42L22.4 13.87L22.6 14.34L22.76 14.83" stroke="#dc9de8" stroke-width="2.17"/><path d="M22.76 14.83L22.89 15.33L22.98 15.85L23.04 16.37L23.05 16.91L23.02 17.44L22.95 17.98" stroke="#d29cf2" stroke-width="2.22"/><path d="M22.95 17.98L22.84 18.52L22.69 19.05L22.5 19.57L22.26 20.07L21.99 20.57L21.68 21.04" stroke="#c79bfc" stroke-width="2.27"/><path d="M21.68 21.04L21.33 21.5L20.94 21.93L20.52 22.33L20.06 22.7L19.58 23.04L19.07 23.34" stroke="#bd9dff" stroke-width="2.31"/><path d="M19.07 23.34L18.53 23.61L17.97 23.84L17.39 24.02L16.79 24.16L16.18 24.26L15.56 24.31" stroke="#b49fff" stroke-width="2.36"/><path d="M15.56 24.31L14.93 24.31L14.3 24.27L13.67 24.18L13.04 24.04L12.43 23.85L11.82 23.61" stroke="#aaa1ff" stroke-width="2.41"/><path d="M11.82 23.61L11.23 23.33L10.66 23L10.11 22.63L9.59 22.21L9.09 21.76L8.63 21.26" stroke="#a1a4ff" stroke-width="2.45"/><path d="M8.63 21.26L8.21 20.72L7.82 20.16L7.48 19.56L7.18 18.93L6.93 18.28L6.72 17.6" stroke="#98a6ff" stroke-width="2.5"/><path d="M6.72 17.6L6.57 16.91L6.47 16.21L6.42 15.49L6.42 14.77L6.48 14.04L6.6 13.32" stroke="#8ea9ff" stroke-width="2.54"/><path d="M6.6 13.32L6.77 12.6L6.99 11.9L7.27 11.21L7.6 10.53L7.98 9.89L8.42 9.26" stroke="#89b0ff" stroke-width="2.59"/><path d="M8.42 9.26L8.9 8.67L9.43 8.12L10 7.6L10.61 7.12L11.27 6.69L11.95 6.3" stroke="#84b7ff" stroke-width="2.64"/><path d="M11.95 6.3L12.67 5.97L13.41 5.69L14.18 5.47L14.97 5.3L15.77 5.19L16.58 5.14" stroke="#7fbeff" stroke-width="2.68"/><path d="M16.58 5.14L17.4 5.16L18.21 5.23L19.03 5.37L19.84 5.57L20.63 5.83L21.41 6.15" stroke="#7ac5ff" stroke-width="2.73"/><path d="M21.41 6.15L22.16 6.53L22.89 6.97L23.58 7.46L24.24 8.01L24.86 8.61L25.44 9.26" stroke="#75ccff" stroke-width="2.78"/></g>
+      <circle cx="25.44" cy="9.26" r="4.6" fill="url(#mark-glow)"/><circle cx="25.44" cy="9.26" r="2.1" fill="#fff"/>
+    </symbol>
+  </svg>
   <header id="brand" class="glass">
-    <div class="logo"><span class="mark" aria-hidden="true"></span><span class="wordmark">Heavy Rotation</span></div>
+    <div class="logo"><svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span class="wordmark">Aphelion</span></div>
     <p class="tagline">Your listening life as a galaxy</p>
     <div id="chips" class="chips"></div>
     <div id="preview" class="badge" hidden>Preview · estimated from your top songs</div>
@@ -190,7 +195,7 @@
   <div id="hint"><b>Drag</b> to orbit · <b>scroll</b> to zoom · <b>click a star</b> to fly in</div>
   <div id="tooltip" class="glass"></div>
   <div class="vignette"></div>
-  <div id="loading"><div class="loader"><span class="mark"></span>Building your galaxy…</div></div>
+  <div id="loading"><div class="loader"><svg class="mark" aria-hidden="true"><use href="#mark"/></svg>Building your galaxy…</div></div>
   <div id="message" hidden></div>
 
   <script>
