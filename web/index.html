@@ -90,6 +90,13 @@
 
     /* legend */
     #legend { left: 20px; bottom: 20px; padding: 14px 16px; width: 290px; font-size: var(--fs-caption); color: var(--muted); }
+    .legend-toggle { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; display: grid; place-items: center;
+      border: 0; border-radius: 50%; background: none; color: var(--faint); cursor: pointer; }
+    .legend-toggle:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+    /* folded away into a "How to read" pill */
+    #legend.collapsed { padding: 0; width: auto; border-radius: 999px; }
+    #legend.collapsed .legend-toggle { position: static; width: auto; height: auto; display: flex; align-items: center; gap: 7px;
+      padding: 8px 14px 8px 11px; border-radius: 999px; color: var(--text); font-size: var(--fs-caption); }
     .legend-title, .section-title, .eyebrow { font: var(--type-eyebrow); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
     .heat-bar { height: 6px; border-radius: 3px; margin: 9px 0 5px; background: var(--heat); }
     .heat-ticks { position: relative; height: 16px; font-size: var(--fs-micro); }
@@ -103,6 +110,12 @@
     .key-star::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #dbe9ff; box-shadow: 0 0 8px 2px rgba(142, 197, 255, 0.6); }
     .key-dust::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: #c4ccea; box-shadow: 5px -3px 0 -0.5px #9aa2c4, -4px 3px 0 -0.5px #9aa2c4; }
     .key-spiral::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #6d7fa8; border-right-color: transparent; }
+    .key-sun::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: #f4f7ff; box-shadow: 0 0 9px 3px rgba(142, 197, 255, 0.5); }
+    .key-planet::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: repeating-linear-gradient(170deg, #a7b4f2 0 2px, #6f7fc4 2px 4px); }
+    .key-orbits::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #6d7fa8;
+      background: radial-gradient(circle, #c9d3f5 0 1.3px, transparent 1.8px 3.3px, #6d7fa8 3.8px 4.6px, transparent 5.1px); }
+    .key-belt::before { content: ""; width: 2px; height: 2px; border-radius: 50%; background: #a39a8f;
+      box-shadow: 4px 2px 0 #a39a8f, -4px 2px 0 #8d8479, 7px -1px 0 #8d8479, -7px -2px 0 #a39a8f; }
 
     /* breadcrumb, in the top bar while you visit a star */
     .crumb { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-small); }
@@ -184,7 +197,7 @@
     @media (prefers-reduced-motion: reduce) {
       .loader .mark, .pulse::after { animation: none; }
     }
-    /* small screens: the totals on their own line, panel as a bottom sheet, no legend or hint */
+    /* small screens: the totals on their own line, panel as a bottom sheet, the legend folded, no hint */
     @media (max-width: 760px) {
       #topbar { flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px 28px; }
       .divider, .tagline { display: none; }
@@ -193,7 +206,8 @@
       .actions { margin-left: auto; }
       body.visiting .wordmark, body.visiting .summary { display: none; }
       #crumb-name { max-width: 52vw; }
-      #legend, #hint { display: none; }
+      #hint, body.visiting #legend { display: none; }
+      #legend { left: 12px; bottom: 12px; width: min(290px, calc(100vw - 24px)); }
       #panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 52vh; transform: translateY(16px); }
       #controls .zoom, body.visiting #controls { display: none; } /* pinch to zoom; the sheet covers the corner */
     }
@@ -227,14 +241,23 @@
   <aside id="panel" class="glass" hidden></aside>
 
   <section id="legend" class="glass" aria-label="How to read the galaxy">
-    <div class="legend-title">Last played</div>
-    <div class="heat-bar"></div>
-    <div id="heat-ticks" class="heat-ticks"></div>
-    <ul class="keys">
-      <li><span class="key key-star"></span>An artist · bigger = more time listened</li>
-      <li><span class="key key-dust"></span>Dust · artists you played less</li>
-      <li><span class="key key-spiral"></span>Spiral · center = first play, tip = today</li>
-    </ul>
+    <button id="legend-toggle" class="legend-toggle" type="button" aria-controls="legend-body"></button>
+    <div id="legend-body">
+      <div class="legend-title">Last played</div>
+      <div class="heat-bar"></div>
+      <div id="heat-ticks" class="heat-ticks"></div>
+      <ul class="keys" data-for="galaxy">
+        <li><span class="key key-star"></span>An artist · bigger = more time listened</li>
+        <li><span class="key key-dust"></span>Dust · artists you played less</li>
+        <li><span class="key key-spiral"></span>Spiral · center = first play, tip = today</li>
+      </ul>
+      <ul class="keys" data-for="system" hidden>
+        <li><span class="key key-sun"></span>Sun · the artist</li>
+        <li><span class="key key-planet"></span>Planets · top songs, bigger = more plays</li>
+        <li><span class="key key-orbits"></span>Orbits · inner = the song you found first</li>
+        <li><span class="key key-belt"></span>Asteroid belt · songs you played less</li>
+      </ul>
+    </div>
   </section>
 
   <div id="hint"><b>Drag</b> to orbit · <b>scroll</b> to zoom · <b>click a star</b> to fly in</div>

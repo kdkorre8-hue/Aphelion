@@ -136,7 +136,7 @@ async function main() {
     return;
   }
   ui.setupHeader(data, showWholeGalaxy);
-  ui.setupLegend(HEAT);
+  ui.setupLegend(HEAT, !phone.matches && ui.settings.get("legend") !== "closed"); // folded on phones, to start with
 
   // Time -> place on the spiral arm
   const timeline = buildTimeline(data);
@@ -744,6 +744,7 @@ async function main() {
     openClearing(info.position, system.extent + 6);
     showOverviewLabels(false);
     ui.showCrumb(info.artist.name, goHome);
+    ui.setLegendMode("system");
     ui.openPanel(info.artist, data, {
       color: `#${info.color.getHexString()}`,
       ago: daysAgo,
@@ -763,6 +764,7 @@ async function main() {
     clearing.target = 0;
     showOverviewLabels(true);
     ui.hideCrumb();
+    ui.setLegendMode("galaxy");
     ui.closePanel();
     insets = measureInsets(false);
     userMoved = false;
