@@ -1,7 +1,7 @@
 // A poster of your galaxy to share: the picture you're looking at, framed with the Aphelion mark, your totals
 // and your top five, as a PNG in post (4:5) or story (9:16) size. It's drawn here in the browser; nothing is
 // uploaded anywhere.
-import { el, icon } from "./ui.js";
+import { el, icon, keepFocusIn } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
 export const FORMATS = { post: [1080, 1350], story: [1080, 1920] };
@@ -144,11 +144,14 @@ export function setupShare({ make, filename }) {
     download.disabled = false;
   }
 
+  // The focus goes into the window at once (to the size), and on to Download once the poster is ready, unless
+  // you've moved it yourself by then
   function open() {
     returnFocus = document.activeElement;
     dialog.hidden = false;
-    show();
-    download.focus();
+    const size = dialog.querySelector(`[data-format="${format}"]`);
+    size.focus();
+    show().then(() => { if (document.activeElement === size) download.focus(); });
   }
 
   function close() {
@@ -177,7 +180,7 @@ export function setupShare({ make, filename }) {
   $("share-close").onclick = close;
   dialog.onpointerdown = (e) => { if (e.target === dialog) close(); };
   dialog.onkeydown = (e) => {
-    if (e.key !== "Escape") return;
+    if (keepFocusIn(dialog, e) || e.key !== "Escape") return;
     e.stopPropagation();
     close();
   };

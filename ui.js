@@ -782,6 +782,21 @@ export function closePanel() {
   returnFocus = null;
 }
 
+// Tab and Shift+Tab go round the things in an open window instead of out into the page behind it.
+// Call it from the window's keydown; it returns whether it handled the key.
+export function keepFocusIn(box, e) {
+  if (e.key !== "Tab") return false;
+  const stops = [...box.querySelectorAll("button, input, a[href], [tabindex]:not([tabindex='-1'])")]
+    .filter((node) => !node.disabled && node.offsetParent !== null);
+  if (!stops.length) return false;
+  const first = stops[0], last = stops.at(-1);
+  if (stops.length === 1 || (e.shiftKey && document.activeElement === first) || (!e.shiftKey && document.activeElement === last)) {
+    e.preventDefault();
+    (e.shiftKey ? last : first).focus();
+  }
+  return true;
+}
+
 // Say something to screen readers, without showing it: where you've gone, what you've picked
 export function announce(text) {
   const box = $("announcer");
