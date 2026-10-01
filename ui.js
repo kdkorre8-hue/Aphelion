@@ -181,9 +181,14 @@ function showLegend() {
   toggle.replaceChildren(...(open ? [icon("down")] : [icon("info"), "How to read"]));
 }
 
-// The "how to move around" hint fades once you've started exploring
+// The "how to move around" hint, in the words of a touch screen where that's what you have. It fades once
+// you've started exploring.
 export function setupHint(canvas) {
   const hint = $("hint");
+  if (window.matchMedia("(pointer: coarse)").matches) {
+    const b = (text) => el("b", "", text);
+    hint.replaceChildren(b("Tap"), " a star · ", b("drag"), " to orbit · ", b("pinch"), " to zoom");
+  }
   const hide = () => hint.classList.add("gone");
   canvas.addEventListener("pointerdown", hide, { once: true });
   canvas.addEventListener("wheel", hide, { once: true, passive: true });

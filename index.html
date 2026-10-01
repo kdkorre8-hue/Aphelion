@@ -252,7 +252,7 @@
     @media (prefers-reduced-motion: reduce) {
       .loader .mark, .pulse::after { animation: none; }
     }
-    /* small screens: the totals on their own line, panel as a bottom sheet, the legend folded, no hint */
+    /* small screens: the totals on their own line, panel as a bottom sheet, the legend folded */
     @media (max-width: 760px) {
       #topbar { flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px 28px; }
       .divider, .tagline { display: none; }
@@ -261,7 +261,8 @@
       .actions { margin-left: auto; }
       body.visiting .wordmark, body.visiting .summary { display: none; }
       #crumb-name { max-width: 52vw; }
-      #hint, body.visiting #legend { display: none; }
+      body.visiting #legend { display: none; }
+      #hint { bottom: 160px; } /* above the legend pill and the toolbar */
       #legend { left: 12px; bottom: 12px; width: min(290px, calc(100vw - 24px)); }
       #card { left: 12px !important; right: 12px; top: auto !important; bottom: 12px; max-width: none; } /* docked, not pinned */
       #panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 52vh; transform: translateY(16px); }
