@@ -134,6 +134,7 @@ async function main() {
     return;
   }
   ui.setupHeader(data);
+  ui.setupLegend(HEAT);
 
   // Time -> place on the spiral arm
   const timeline = buildTimeline(data);
@@ -313,7 +314,7 @@ async function main() {
     const addTime = (month, text) => {
       if (labelled.has(month)) return;
       labelled.add(month);
-      const l = label([text], "time");
+      const l = label([text], "note time");
       l.position.copy(onArm(frac(ui.monthStart(month)), 1.35));
       timeLabels.push(l);
     };
@@ -326,16 +327,16 @@ async function main() {
     }
     for (const b of timeline.breaks) {
       const middle = (ui.monthStart(b.from) + ui.monthStart(b.to + 1)) / 2;
-      const gap = label([`${ui.format.duration(b.to - b.from + 1)} without plays`], "gap");
+      const gap = label([`${ui.format.duration(b.to - b.from + 1)} without plays`], "note gap");
       gap.position.copy(onArm(frac(middle), 1.35));
       timeLabels.push(gap);
       if (b.to < ui.monthNumber(data.end)) addTime(b.to + 1, ui.format.month(ui.monthStart(b.to + 1)));
     }
-    const first = label([`First play · ${ui.format.month(data.start)}`], "milestone");
+    const first = label([`First play · ${ui.format.month(data.start)}`], "name milestone");
     first.position.copy(onArm(0, 0, 5));
     const dot = document.createElement("span");
     dot.className = "pulse";
-    const today = label([dot, "Today"], "milestone today");
+    const today = label([dot, "Today"], "name milestone today");
     today.position.copy(onArm(1, 0, 5));
     timeLabels.push(first, today);
     scene.add(...timeLabels);
@@ -431,7 +432,7 @@ async function main() {
       planets.push({ pivot, speed: ORBIT_SPEED / Math.pow(orbit, 0.9) });
       targets.push(planet);
       meshes.set(song, planet);
-      const tag = label([song.name], "planet");
+      const tag = label([song.name], "name planet");
       tag.position.set(0, size + 0.35, 0);
       tag.visible = named.has(song);
       planet.add(tag);
