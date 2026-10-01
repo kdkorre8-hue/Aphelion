@@ -86,16 +86,37 @@ export function doneLoading() {
   $("loading").classList.add("done");
 }
 
-export function setupHeader(data) {
+export function setupHeader(data, onHome) {
   const artists = data.stars.length + data.dust.length;
-  const chips = [
+  $("summary").textContent = [
     format.count(artists, "artist"),
     `${format.compact(data.plays)} plays`,
-    `${format.compact(data.hours)} hours`,
-    `${format.month(data.start)} → today`,
-  ];
-  $("chips").replaceChildren(...chips.map((text) => el("span", "chip", text)));
+    format.hours(data.hours),
+    `since ${format.month(data.start)}`,
+  ].join(" · ");
   $("preview").hidden = data.mode !== "preview";
+  $("brand").onclick = onHome;
+}
+
+// Buttons for the view: back to the whole galaxy, zoom, full screen (each also on a key)
+export function setupControls({ onHome, onZoom, onFullscreen }) {
+  const button = (name, label, onClick, className = "") => {
+    const b = el("button", className);
+    b.type = "button";
+    b.title = label;
+    b.setAttribute("aria-label", label.replace(/ \(.*\)$/, ""));
+    b.append(icon(name));
+    b.onclick = onClick;
+    return b;
+  };
+  const items = [
+    button("home", "The whole galaxy (H)", onHome),
+    el("div", "rule zoom"),
+    button("plus", "Zoom in (+)", () => onZoom(0.7), "zoom"),
+    button("minus", "Zoom out (−)", () => onZoom(1 / 0.7), "zoom"),
+  ];
+  if (document.fullscreenEnabled) items.push(el("div", "rule"), button("fullscreen", "Full screen (F)", onFullscreen));
+  $("controls").replaceChildren(...items);
 }
 
 // The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale)
@@ -119,14 +140,19 @@ export function setupHint(canvas) {
   setTimeout(hide, 12000);
 }
 
+// The top bar says where you are: the tagline in the galaxy, "Galaxy / artist" while you visit a star
 export function showCrumb(name, onBack) {
   $("crumb-name").textContent = name;
   $("crumb").hidden = false;
+  $("tagline").hidden = true;
   $("back").onclick = onBack;
+  document.body.classList.add("visiting");
 }
 
 export function hideCrumb() {
   $("crumb").hidden = true;
+  $("tagline").hidden = false;
+  document.body.classList.remove("visiting");
 }
 
 // ---------- tooltip ----------

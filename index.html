@@ -60,17 +60,32 @@
     .vignette { position: fixed; inset: 0; z-index: 2; pointer-events: none;
       background: radial-gradient(ellipse at center, transparent 50%, rgba(1, 2, 8, 0.6) 100%); }
 
-    /* brand */
-    #brand { top: 20px; left: 20px; padding: 16px 18px; max-width: calc(100vw - 40px); }
-    .logo { display: flex; align-items: center; gap: 10px; }
+    /* top bar: the brand, where you are, your totals and actions, on a soft scrim instead of a card */
+    #topbar { position: fixed; z-index: 10; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px;
+      padding: 18px 24px 34px; pointer-events: none; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.7);
+      background: linear-gradient(to bottom, rgba(3, 4, 10, 0.78), rgba(3, 4, 10, 0)); }
+    #topbar > * { pointer-events: auto; }
+    .brand { display: flex; align-items: center; gap: 10px; margin: -6px -8px; padding: 6px 8px; border: 0; border-radius: 10px;
+      background: none; cursor: pointer; }
+    .brand:hover { background: rgba(255, 255, 255, 0.06); }
     .mark { width: 22px; height: 22px; flex: none; }
     .wordmark { font: 600 13px/1 var(--display); letter-spacing: 0.22em; text-transform: uppercase; }
-    .tagline { margin: 8px 0 12px; color: var(--muted); font-size: var(--fs-small); }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip { font-size: var(--fs-caption); padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--line); color: #c9cde2; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .badge { margin-top: 10px; font-size: var(--fs-caption); color: var(--warm); display: flex; align-items: center; gap: 6px; }
+    .divider { width: 1px; height: 18px; flex: none; background: rgba(255, 255, 255, 0.14); }
+    .tagline { margin: 0; color: var(--muted); font-size: var(--fs-small); white-space: nowrap; }
+    .summary { margin: 0 0 0 auto; color: var(--muted); font-size: var(--fs-small); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .badge { font-size: var(--fs-caption); color: var(--warm); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warm); }
+    .actions { display: flex; gap: 6px; }
+    .actions:empty { display: none; }
+    body.visiting .summary, body.visiting .badge { visibility: hidden; }
+
+    /* map controls */
+    #controls { right: 20px; bottom: 20px; display: grid; gap: 2px; padding: 4px; border-radius: 12px; transition: right 0.35s ease; }
+    #controls button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 9px; background: none;
+      color: var(--muted); cursor: pointer; }
+    #controls button:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+    #controls .rule { height: 1px; margin: 2px 7px; background: var(--line); }
+    body.visiting #controls { right: 380px; } /* left of the artist panel */
 
     /* legend */
     #legend { left: 20px; bottom: 20px; padding: 14px 16px; width: 290px; font-size: var(--fs-caption); color: var(--muted); }
@@ -88,17 +103,16 @@
     .key-dust::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: #c4ccea; box-shadow: 5px -3px 0 -0.5px #9aa2c4, -4px 3px 0 -0.5px #9aa2c4; }
     .key-spiral::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #6d7fa8; border-right-color: transparent; }
 
-    /* breadcrumb */
-    #crumb { top: 20px; left: 50%; transform: translateX(-50%); padding: 5px 6px 5px 5px; display: flex; align-items: center; gap: 8px;
-      border-radius: 999px; font-size: var(--fs-small); }
+    /* breadcrumb, in the top bar while you visit a star */
+    .crumb { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-small); }
     #back { display: inline-flex; align-items: center; gap: 6px; border: 0; background: rgba(255, 255, 255, 0.08); border-radius: 999px;
-      padding: 5px 12px 5px 9px; cursor: pointer; white-space: nowrap; }
+      padding: 5px 12px 5px 9px; cursor: pointer; white-space: nowrap; text-shadow: none; }
     #back:hover { background: rgba(255, 255, 255, 0.16); }
-    #crumb .sep { color: var(--faint); }
-    #crumb-name { padding-right: 10px; font-weight: 500; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .crumb .sep { color: var(--faint); }
+    #crumb-name { font-weight: 500; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* artist panel */
-    #panel { top: 20px; right: 20px; bottom: 20px; width: 340px; padding: 22px 22px 18px; overflow-y: auto;
+    #panel { top: 72px; right: 20px; bottom: 20px; width: 340px; padding: 22px 22px 18px; overflow-y: auto;
       background: var(--glass-strong); opacity: 0; transform: translateX(16px); transition: opacity 0.35s ease, transform 0.35s ease; }
     #panel.open { opacity: 1; transform: none; }
     #panel h2 { margin: 6px 0 4px; font: var(--type-title); letter-spacing: -0.01em; overflow-wrap: anywhere; }
@@ -165,13 +179,18 @@
     @media (prefers-reduced-motion: reduce) {
       .loader .mark, .pulse::after { animation: none; }
     }
-    /* small screens: slimmer header, panel as a bottom sheet, no legend or hint */
+    /* small screens: the totals on their own line, panel as a bottom sheet, no legend or hint */
     @media (max-width: 760px) {
-      #brand { top: 12px; left: 12px; padding: 12px 14px; }
-      .tagline { display: none; }
+      #topbar { flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px 28px; }
+      .divider, .tagline { display: none; }
+      .summary { order: 1; flex-basis: 100%; margin: 0; font-size: var(--fs-caption); }
+      .badge { order: 2; }
+      .actions { margin-left: auto; }
+      body.visiting .wordmark, body.visiting .summary { display: none; }
+      #crumb-name { max-width: 52vw; }
       #legend, #hint { display: none; }
-      #crumb { top: auto; bottom: 12px; }
-      #panel { top: auto; left: 12px; right: 12px; bottom: 64px; width: auto; max-height: 48vh; transform: translateY(16px); }
+      #panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 52vh; transform: translateY(16px); }
+      #controls .zoom, body.visiting #controls { display: none; } /* pinch to zoom; the sheet covers the corner */
     }
   </style>
 </head>
@@ -184,16 +203,21 @@
       <circle cx="25.44" cy="9.26" r="4.6" fill="url(#mark-glow)"/><circle cx="25.44" cy="9.26" r="2.1" fill="#fff"/>
     </symbol>
   </svg>
-  <header id="brand" class="glass">
-    <div class="logo"><svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span class="wordmark">Aphelion</span></div>
-    <p class="tagline">Your listening life as a galaxy</p>
-    <div id="chips" class="chips"></div>
-    <div id="preview" class="badge" hidden>Preview · estimated from your top songs</div>
+  <header id="topbar">
+    <button id="brand" class="brand" type="button" title="The whole galaxy (H)">
+      <svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span class="wordmark">Aphelion</span>
+    </button>
+    <span class="divider" aria-hidden="true"></span>
+    <p id="tagline" class="tagline">Your listening life as a galaxy</p>
+    <nav id="crumb" class="crumb" aria-label="Where you are" hidden>
+      <button id="back" type="button">Galaxy</button><span class="sep" aria-hidden="true">/</span><span id="crumb-name"></span>
+    </nav>
+    <p id="summary" class="summary"></p>
+    <span id="preview" class="badge" hidden>Preview · estimated from your top songs</span>
+    <div id="actions" class="actions"></div>
   </header>
 
-  <nav id="crumb" class="glass" hidden>
-    <button id="back" type="button">Galaxy</button><span class="sep">/</span><span id="crumb-name"></span>
-  </nav>
+  <div id="controls" class="glass" role="toolbar" aria-label="View"></div>
 
   <aside id="panel" class="glass" hidden></aside>
 
