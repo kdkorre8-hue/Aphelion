@@ -137,8 +137,14 @@ export function setNamesButton(on) {
   document.querySelector("#controls .names-button").setAttribute("aria-pressed", String(on));
 }
 
-// The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale)
-export function setupLegend(heat) {
+// The legend explains what you're looking at: the galaxy, or the system of the star you visit. It folds away
+// into a "How to read" pill. Whether the galaxy's is open is remembered; a system's starts folded, so it never
+// covers planets, and stays open once you open it.
+const legendOpen = { galaxy: true, system: false };
+let legendMode = "galaxy";
+
+// The color bar and its time marks are drawn from the stars' own color scale (days -> color, on a log scale)
+export function setupLegend(heat, open) {
   const longest = heat.at(-1)[0];
   const at = (days) => `${((Math.log1p(days) / Math.log1p(longest)) * 100).toFixed(1)}%`;
   document.documentElement.style.setProperty("--heat", `linear-gradient(90deg, ${heat.map(([days, color]) => `${color} ${at(days)}`).join(", ")})`);
@@ -147,6 +153,31 @@ export function setupLegend(heat) {
     tick.style.left = at(days);
     return tick;
   }));
+  legendOpen.galaxy = open;
+  $("legend-toggle").onclick = () => {
+    legendOpen[legendMode] = !legendOpen[legendMode];
+    if (legendMode === "galaxy") settings.set("legend", legendOpen.galaxy ? "open" : "closed");
+    showLegend();
+  };
+  showLegend();
+}
+
+export function setLegendMode(mode) {
+  legendMode = mode;
+  for (const keys of document.querySelectorAll("#legend .keys")) keys.hidden = keys.dataset.for !== mode;
+  $("legend").setAttribute("aria-label", mode === "galaxy" ? "How to read the galaxy" : "How to read a star system");
+  showLegend();
+}
+
+function showLegend() {
+  const open = legendOpen[legendMode];
+  $("legend").classList.toggle("collapsed", !open);
+  $("legend-body").hidden = !open;
+  const toggle = $("legend-toggle");
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.title = open ? "Fold the legend away" : "";
+  toggle.setAttribute("aria-label", open ? "Fold the legend away" : "How to read");
+  toggle.replaceChildren(...(open ? [icon("down")] : [icon("info"), "How to read"]));
 }
 
 // The "how to move around" hint fades once you've started exploring
