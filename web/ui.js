@@ -137,8 +137,13 @@ export function setNamesButton(on) {
   document.querySelector("#controls .names-button").setAttribute("aria-pressed", String(on));
 }
 
-// The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale).
-// The legend folds away into a "How to read" pill; whether it's open is remembered.
+// The legend explains what you're looking at: the galaxy, or the system of the star you visit. It folds away
+// into a "How to read" pill. Whether the galaxy's is open is remembered; a system's starts folded, so it never
+// covers planets, and stays open once you open it.
+const legendOpen = { galaxy: true, system: false };
+let legendMode = "galaxy";
+
+// The color bar and its time marks are drawn from the stars' own color scale (days -> color, on a log scale)
 export function setupLegend(heat, open) {
   const longest = heat.at(-1)[0];
   const at = (days) => `${((Math.log1p(days) / Math.log1p(longest)) * 100).toFixed(1)}%`;
@@ -148,14 +153,24 @@ export function setupLegend(heat, open) {
     tick.style.left = at(days);
     return tick;
   }));
+  legendOpen.galaxy = open;
   $("legend-toggle").onclick = () => {
-    setLegendOpen($("legend").classList.contains("collapsed"));
-    settings.set("legend", $("legend").classList.contains("collapsed") ? "closed" : "open");
+    legendOpen[legendMode] = !legendOpen[legendMode];
+    if (legendMode === "galaxy") settings.set("legend", legendOpen.galaxy ? "open" : "closed");
+    showLegend();
   };
-  setLegendOpen(open);
+  showLegend();
 }
 
-function setLegendOpen(open) {
+export function setLegendMode(mode) {
+  legendMode = mode;
+  for (const keys of document.querySelectorAll("#legend .keys")) keys.hidden = keys.dataset.for !== mode;
+  $("legend").setAttribute("aria-label", mode === "galaxy" ? "How to read the galaxy" : "How to read a star system");
+  showLegend();
+}
+
+function showLegend() {
+  const open = legendOpen[legendMode];
   $("legend").classList.toggle("collapsed", !open);
   $("legend-body").hidden = !open;
   const toggle = $("legend-toggle");

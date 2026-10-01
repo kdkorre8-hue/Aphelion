@@ -110,6 +110,12 @@
     .key-star::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #dbe9ff; box-shadow: 0 0 8px 2px rgba(142, 197, 255, 0.6); }
     .key-dust::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: #c4ccea; box-shadow: 5px -3px 0 -0.5px #9aa2c4, -4px 3px 0 -0.5px #9aa2c4; }
     .key-spiral::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #6d7fa8; border-right-color: transparent; }
+    .key-sun::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: #f4f7ff; box-shadow: 0 0 9px 3px rgba(142, 197, 255, 0.5); }
+    .key-planet::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: repeating-linear-gradient(170deg, #a7b4f2 0 2px, #6f7fc4 2px 4px); }
+    .key-orbits::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #6d7fa8;
+      background: radial-gradient(circle, #c9d3f5 0 1.3px, transparent 1.8px 3.3px, #6d7fa8 3.8px 4.6px, transparent 5.1px); }
+    .key-belt::before { content: ""; width: 2px; height: 2px; border-radius: 50%; background: #a39a8f;
+      box-shadow: 4px 2px 0 #a39a8f, -4px 2px 0 #8d8479, 7px -1px 0 #8d8479, -7px -2px 0 #a39a8f; }
 
     /* breadcrumb, in the top bar while you visit a star */
     .crumb { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-small); }
@@ -240,10 +246,16 @@
       <div class="legend-title">Last played</div>
       <div class="heat-bar"></div>
       <div id="heat-ticks" class="heat-ticks"></div>
-      <ul class="keys">
+      <ul class="keys" data-for="galaxy">
         <li><span class="key key-star"></span>An artist · bigger = more time listened</li>
         <li><span class="key key-dust"></span>Dust · artists you played less</li>
         <li><span class="key key-spiral"></span>Spiral · center = first play, tip = today</li>
+      </ul>
+      <ul class="keys" data-for="system" hidden>
+        <li><span class="key key-sun"></span>Sun · the artist</li>
+        <li><span class="key key-planet"></span>Planets · top songs, bigger = more plays</li>
+        <li><span class="key key-orbits"></span>Orbits · inner = the song you found first</li>
+        <li><span class="key key-belt"></span>Asteroid belt · songs you played less</li>
       </ul>
     </div>
   </section>
