@@ -133,7 +133,7 @@ async function main() {
     ui.showMessage("No plays yet. Run python galaxy.py again after listening to some music.");
     return;
   }
-  ui.setupHeader(data);
+  ui.setupHeader(data, showWholeGalaxy);
   ui.setupLegend(HEAT);
 
   // Time -> place on the spiral arm
@@ -524,10 +524,29 @@ async function main() {
   const fit = (distance) => distance * Math.max(1, 1.25 / camera.aspect);
 
   function flyTo(target, distance, dir = niceDirection(), seconds = 1.6) {
-    distance = fit(distance);
     flight = { t: 0, seconds, target: target.clone(), distance, dir, fromTarget: controls.target.clone(), fromCamera: camera.position.clone() };
     controls.enabled = false;
     controls.autoRotate = false;
+  }
+
+  // Closer or further along the line you're looking, around the same point. Pressing again before
+  // the camera gets there carries on from where it was heading, so quick presses add up.
+  function zoom(factor) {
+    const target = flight ? flight.target : controls.target;
+    const dir = flight ? flight.dir.clone() : camera.position.clone().sub(target).normalize();
+    const from = flight ? flight.distance : camera.position.distanceTo(target);
+    flyTo(target, THREE.MathUtils.clamp(from * factor, controls.minDistance, controls.maxDistance), dir, 0.45);
+  }
+
+  // Back to the overview: leave the star you're visiting, or undo your own orbiting and zooming
+  function showWholeGalaxy() {
+    if (system) goHome();
+    else flyTo(home.target, fit(home.distance), home.dir);
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
   }
 
   function visit(info) {
@@ -535,7 +554,7 @@ async function main() {
     system = openSystem(info);
     openClearing(info.position, system.extent + 6);
     for (const l of timeLabels) l.visible = false;
-    flyTo(info.position, system.extent * 1.7 + 4);
+    flyTo(info.position, fit(system.extent * 1.7 + 4));
     ui.showCrumb(info.artist.name, goHome);
     ui.openPanel(info.artist, data, {
       color: `#${info.color.getHexString()}`,
@@ -551,11 +570,27 @@ async function main() {
     closeSystem();
     clearing.target = 0;
     for (const l of timeLabels) l.visible = true;
-    flyTo(home.target, home.distance, home.dir);
+    flyTo(home.target, fit(home.distance), home.dir);
     ui.hideCrumb();
     ui.closePanel();
   }
-  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && system) goHome(); });
+
+  ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onFullscreen: toggleFullscreen });
+  const keys = {
+    Escape: () => system && goHome(),
+    h: showWholeGalaxy,
+    "+": () => zoom(0.7), "=": () => zoom(0.7),
+    "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
+    f: toggleFullscreen,
+  };
+  window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.("input, textarea, [contenteditable]")) return;
+    const action = keys[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    if (action) {
+      e.preventDefault();
+      action();
+    }
+  });
 
   // ---------- pointing at things ----------
 
@@ -652,7 +687,7 @@ async function main() {
     camera.position.copy(home.dir).multiplyScalar(fit(home.distance));
   } else {
     camera.position.copy(home.dir).applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.7).multiplyScalar(fit(home.distance) * 2.4);
-    flyTo(home.target, home.distance, home.dir, 3.2);
+    flyTo(home.target, fit(home.distance), home.dir, 3.2);
   }
   ui.setupHint(renderer.domElement);
 
