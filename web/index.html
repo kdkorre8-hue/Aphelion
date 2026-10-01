@@ -27,7 +27,7 @@
       --text: #e9ebf5;
       --muted: #9097b6;
       --faint: #7a81a3; /* at least 4.5:1 on the glass, like all text */
-      --accent: #8ec5ff;
+      --interactive: #dfe7ff; /* links and actions stay neutral: in the galaxy, blue means played recently */
       --warm: #ffcf8a;
       --radius: 14px;
       --display: "Space Grotesk", "Inter", system-ui, sans-serif;
@@ -98,7 +98,7 @@
       background: var(--glass-strong); opacity: 0; transform: translateX(16px); transition: opacity 0.35s ease, transform 0.35s ease; }
     #panel.open { opacity: 1; transform: none; }
     #panel h2 { margin: 6px 0 4px; font: var(--type-title); letter-spacing: -0.01em; overflow-wrap: anywhere; }
-    #panel h2::after { content: ""; display: block; width: 36px; height: 3px; border-radius: 2px; margin-top: 12px; background: var(--artist, var(--accent)); }
+    #panel h2::after { content: ""; display: block; width: 36px; height: 3px; border-radius: 2px; margin-top: 12px; background: var(--artist, var(--text)); }
     .panel-sub { margin: 10px 0 18px; color: var(--muted); font-size: var(--fs-small); }
     .panel-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border: 0; border-radius: 50%;
       background: rgba(255, 255, 255, 0.06); font-size: 18px; line-height: 1; cursor: pointer; color: var(--muted); }
@@ -116,8 +116,9 @@
     .song-rank { color: var(--faint); font-variant-numeric: tabular-nums; font-size: var(--fs-caption); }
     .song-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .song-plays { color: var(--muted); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
-    .spotify-link { display: inline-block; font-size: var(--fs-small); color: var(--accent); text-decoration: none; padding: 6px 0; }
-    .spotify-link:hover { text-decoration: underline; }
+    .spotify-link { display: inline-block; font-size: var(--fs-small); font-weight: 500; color: var(--interactive); padding: 6px 0;
+      text-decoration: underline; text-decoration-color: rgba(223, 231, 255, 0.3); text-underline-offset: 3px; }
+    .spotify-link:hover { text-decoration-color: currentColor; }
 
     /* tooltip */
     #tooltip { display: flex; gap: 12px; align-items: center; padding: 11px 13px; max-width: 330px; pointer-events: none; border-radius: 12px;
@@ -126,7 +127,7 @@
     #tooltip img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex: none; background: #1a1c2c; }
     .tip-title { font-weight: 600; font-size: var(--fs-body); }
     .tip-meta { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }
-    .tip-hint { color: var(--accent); font-size: var(--fs-caption); margin-top: 5px; }
+    .tip-hint { color: var(--interactive); font-size: var(--fs-caption); font-weight: 500; margin-top: 5px; }
 
     /* hint */
     #hint { position: fixed; z-index: 10; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 16px; border-radius: 999px;
