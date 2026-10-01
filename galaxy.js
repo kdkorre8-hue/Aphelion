@@ -748,6 +748,7 @@ async function main() {
     ui.openPanel(info.artist, data, {
       color: `#${info.color.getHexString()}`,
       ago: daysAgo,
+      timeline,
       onClose: goHome,
       onSongEnter: (song) => highlightSong(song, true),
       onSongLeave: (song) => highlightSong(song, false),
