@@ -126,6 +126,10 @@ function dispose(object) {
 // ---------- scene ----------
 
 async function main() {
+  // The arrival from afar, unless you'd rather have less motion or a link takes you straight to a star: the
+  // page's own parts wait for it from the start, under the loading screen
+  const introduce = !calm && !location.hash.startsWith("#/artist/");
+  if (introduce) ui.startIntro();
   let data;
   try {
     data = await (await fetch("galaxy.json")).json();
@@ -1055,7 +1059,8 @@ async function main() {
     camera.position.copy(home.dir).multiplyScalar(home.distance);
   } else {
     camera.position.copy(home.dir).applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.7).multiplyScalar(home.distance * 2.4);
-    flyTo(home.target, home.distance, home.dir, 3.2);
+    if (introduce) setTimeout(ui.reveal, 3800); // in case something else takes over the flight
+    flyTo(home.target, home.distance, home.dir, 3.2, ui.reveal);
   }
   ui.setupHint(renderer.domElement);
   window.addEventListener("resize", reframe);

@@ -108,16 +108,38 @@ export function toast(text) {
   toastTimer = setTimeout(() => { box.hidden = true; }, 4000);
 }
 
+// The totals in the top bar; k (0-1) counts them up as the page arrives
+let summary = () => "";
 export function setupHeader(data, onHome) {
   const artists = data.stars.length + data.dust.length;
-  $("summary").textContent = [
-    format.count(artists, "artist"),
-    `${format.compact(data.plays)} plays`,
-    format.hours(data.hours),
+  summary = (k = 1) => [
+    format.count(Math.round(artists * k), "artist"),
+    `${format.compact(Math.round(data.plays * k))} plays`,
+    k < 1 ? `${Math.round(data.hours * k).toLocaleString("en-US")} h` : format.hours(data.hours),
     `since ${format.month(data.start)}`,
   ].join(" · ");
+  $("summary").textContent = summary();
   $("preview").hidden = data.mode !== "preview";
   $("brand").onclick = onHome;
+}
+
+// The arrival: while the camera flies in from afar, the page's own parts wait (see body.intro in the page's
+// style). reveal() brings them in one after another, the totals counting up, and the names in the galaxy last.
+export function startIntro() {
+  document.body.classList.add("intro", "intro-names");
+}
+
+export function reveal() {
+  if (!document.body.classList.contains("intro")) return;
+  document.body.classList.remove("intro");
+  setTimeout(() => document.body.classList.remove("intro-names"), 700);
+  const start = performance.now(), box = $("summary");
+  const count = (now) => {
+    const t = Math.min(1, (now - start) / 900);
+    box.textContent = summary(1 - Math.pow(1 - t, 3)); // quick, then slowing down to the real numbers
+    if (t < 1) requestAnimationFrame(count);
+  };
+  requestAnimationFrame(count);
 }
 
 // Buttons for the view: back to the whole galaxy, zoom, names on or off, full screen (each also on a key)
