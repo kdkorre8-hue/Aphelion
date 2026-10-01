@@ -229,7 +229,7 @@ export const tooltip = {
       add(s.name, "tip-title");
       add(`${a.name}${s.album ? ` · ${s.album}` : ""}`, "tip-meta");
       add(`${format.count(s.plays, "play")} · ${format.hours(s.minutes / 60)} · last played ${format.ago(ago(s.last))}`, "tip-meta");
-      add(item.asteroid ? "Asteroid belt: songs you played less · click to open" : "Click to open in Spotify", "tip-hint");
+      add(item.asteroid ? "Asteroid belt: songs you played less · click for details" : "Click for details", "tip-hint");
     } else {
       add(a.name, "tip-title");
       add(`${format.hours(a.hours)} · ${format.count(a.plays, "play")} · ${format.count(a.song_count, "song")}`, "tip-meta");
@@ -400,7 +400,7 @@ function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onS
   bar.style.width = `${Math.max(2, (song.plays / mostPlays) * 100)}%`;
   text.append(el("span", "song-name", song.name), bar);
   item.append(el("span", "song-rank", String(rank)), art, text, el("span", "song-plays", format.compact(song.plays)));
-  item.title = `${song.name} · ${format.count(song.plays, "play")} · click to open in Spotify`;
+  item.title = `${song.name} · ${format.count(song.plays, "play")}`;
   item.onmouseenter = () => onSongEnter(song);
   item.onmouseleave = () => onSongLeave(song);
   item.onclick = () => onSongClick(song);
@@ -410,6 +410,47 @@ function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onS
 // Pointing at a planet (or an asteroid) lights up its song in the list
 export function highlightRow(song, on) {
   songRows.get(song)?.classList.toggle("lit", on);
+}
+
+// The song you clicked, in a card at the top of the list: its art or planet, album, plays and dates, and a
+// button to play it in Spotify. Going to Spotify is always a button you press, never a click in the galaxy.
+let songSlot = null; // where the card goes in the open panel
+const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+export function showSong(song, artist, { ago, colorOf, onPlay, onClear }) {
+  const card = el("div", "song-card");
+  card.style.setProperty("--planet", colorOf(song));
+  const art = el("span", "song-art");
+  if (song.image) {
+    const img = el("img");
+    img.src = song.image;
+    img.alt = "";
+    art.append(img);
+  }
+  const head = el("div", "song-card-head");
+  head.append(el("div", "song-card-title", song.name), el("div", "song-card-meta", [artist.name, song.album].filter(Boolean).join(" · ")));
+  const clear = el("button", "song-card-clear");
+  clear.type = "button";
+  clear.setAttribute("aria-label", "Close the song");
+  clear.append(icon("close"));
+  clear.onclick = onClear;
+  const top = el("div", "song-card-top");
+  top.append(art, head, clear);
+  const facts = el("p", "song-card-facts",
+    `${format.count(song.plays, "play")} · ${format.hours(song.minutes / 60)} · first played ${format.month(song.first)} · last played ${format.ago(ago(song.last))}`);
+  const play = el("button", "button primary");
+  play.type = "button";
+  play.append(icon("play"), "Play in Spotify", icon("external"));
+  play.onclick = () => onPlay(song);
+  card.append(top, facts, play);
+  songSlot.replaceChildren(card);
+  for (const [s, row] of songRows) row.classList.toggle("selected", s === song);
+  card.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" });
+}
+
+export function clearSong() {
+  songSlot?.replaceChildren();
+  for (const row of songRows.values()) row.classList.remove("selected");
 }
 
 export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
@@ -437,6 +478,8 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
   range.append(el("span", "", format.month(data.start)), el("span", "", "today"));
   const readout = el("div", "timeline-readout");
   chart.append(canvas, range, readout);
+
+  songSlot = el("div", "song-slot");
 
   // The top 10, and the rest on request
   const list = el("ol", "songs");
@@ -471,6 +514,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
     el("div", "section-title", "When you listened"),
     chart,
     el("div", "section-title", "Top songs"),
+    songSlot,
     list,
     ...(more ? [more] : []),
     link,
