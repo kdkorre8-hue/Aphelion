@@ -925,12 +925,21 @@ async function main() {
     const item = pick(e.clientX, e.clientY);
     if (!item) return;
     setHovered(null);
-    if (item.kind === "star" && system?.info !== item) visit(item);
+    if (item.kind === "star" && system?.info !== item) {
+      // With a finger there's no pointing without touching, so the first tap shows what the star is, and
+      // its Visit button, or a second tap on it, flies in
+      if (e.pointerType === "touch" && !ui.card.justShowed(item)) {
+        ui.card.show(item, {
+          x: e.clientX, y: e.clientY, ago: daysAgo,
+          actions: [{ label: "Visit", iconAfter: "right", primary: true, onClick: () => visit(item) }],
+        });
+      } else visit(item);
+    }
     else if (item.kind === "song") selectSong(item.song);
     else if (item.kind === "dust") {
       ui.card.show(item, {
         x: e.clientX, y: e.clientY, ago: daysAgo,
-        actions: [{ label: "Play the top song", icon: "play", primary: true, external: true, onClick: () => openSong(item.artist.top_song.id) }],
+        actions: [{ label: "Play the top song", icon: "play", iconAfter: "external", primary: true, onClick: () => openSong(item.artist.top_song.id) }],
       });
     }
   });
