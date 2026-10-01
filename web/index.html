@@ -139,6 +139,13 @@
     .stat { padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); }
     .stat-value { font: var(--type-figure); font-variant-numeric: tabular-nums; }
     .stat-label { font-size: var(--fs-micro); color: var(--muted); margin-top: 2px; }
+    .facts { display: grid; gap: 8px; margin: -6px 0 24px; font-size: var(--fs-small); }
+    .fact { display: grid; grid-template-columns: 74px 1fr; align-items: center; gap: 10px; }
+    .fact dt { font-size: var(--fs-micro); color: var(--faint); }
+    .fact dd { margin: 0; display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .fact-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meter { flex: 1; max-width: 72px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+    .meter span { display: block; height: 100%; border-radius: inherit; background: var(--artist); }
     .timeline-chart { position: relative; }
     .timeline { display: block; width: 100%; height: 64px; margin-top: 10px; cursor: crosshair; }
     .timeline-range { display: flex; justify-content: space-between; font-size: var(--fs-micro); color: var(--faint); margin: 6px 0 22px; }

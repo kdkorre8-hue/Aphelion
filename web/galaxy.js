@@ -748,6 +748,7 @@ async function main() {
     ui.openPanel(info.artist, data, {
       color: `#${info.color.getHexString()}`,
       ago: daysAgo,
+      rank: info.index + 1, // stars come most listened first
       timeline,
       onClose: goHome,
       onSongEnter: (song) => highlightSong(song, true),

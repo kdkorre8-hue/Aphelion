@@ -347,7 +347,40 @@ function chartReadout(canvas, readout, artist, timeline, color) {
   };
 }
 
-export function openPanel(artist, data, { color, ago, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
+// The most months in a row you played the artist (months are in order)
+function longestStreak(months) {
+  let best = 0, run = 0, previous = null;
+  for (const [month] of months) {
+    run = month === previous + 1 ? run + 1 : 1;
+    best = Math.max(best, run);
+    previous = month;
+  }
+  return best;
+}
+
+// The artist next to the rest of your listening: their share of it, their longest streak, and how you met
+function artistFacts(artist, data) {
+  const facts = el("dl", "facts");
+  const fact = (term, ...description) => {
+    const row = el("div", "fact");
+    const value = el("dd");
+    value.append(...description);
+    row.append(el("dt", "", term), value);
+    facts.append(row);
+  };
+  const share = artist.hours / Math.max(data.hours, 0.1);
+  const meter = el("span", "meter");
+  meter.append(el("span"));
+  meter.firstChild.style.width = `${Math.min(100, Math.max(3, share * 100))}%`;
+  fact("Share", `${share < 0.01 ? "Under 1" : Math.round(share * 100)}% of your listening`, meter);
+  const streak = longestStreak(artist.months);
+  if (streak > 1) fact("Streak", `${streak} months in a row`);
+  const firstSong = artist.songs.reduce((a, b) => (b.first < a.first ? b : a));
+  fact("First heard", el("span", "fact-text", `${format.month(artist.first)} · ${firstSong.name}`));
+  return facts;
+}
+
+export function openPanel(artist, data, { color, ago, rank, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
   panel.replaceChildren();
   panel.style.setProperty("--artist", color);
@@ -391,10 +424,11 @@ export function openPanel(artist, data, { color, ago, timeline, onClose, onSongE
 
   panel.append(
     close,
-    el("div", "eyebrow", "Artist"),
+    el("div", "eyebrow", `Artist · #${rank} of ${(data.stars.length + data.dust.length).toLocaleString("en-US")}`),
     el("h2", "", artist.name),
     el("p", "panel-sub", `Most played in ${format.month(artist.peak)} · last played ${format.ago(ago(artist.last))}`),
     stats,
+    artistFacts(artist, data),
     el("div", "section-title", "When you listened"),
     chart,
     el("div", "section-title", "Top songs"),
