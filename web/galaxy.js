@@ -178,10 +178,15 @@ async function main() {
   const clouds = cloudMaterial(cloudTexture(seededRandom("cloud")));
   const pointMaterials = [stars, soft, clouds];
 
-  // Deep space all around
-  const space = new THREE.Mesh(new THREE.SphereGeometry(OUTER_RADIUS * 20, 48, 24), backgroundMaterial());
-  space.renderOrder = -1;
-  scene.add(space);
+  // Deep space all around. Its noise shader is expensive and never changes, so it's drawn once
+  // into a cube map here instead of for every pixel on every frame.
+  {
+    const sky = new THREE.WebGLCubeRenderTarget(512, { type: THREE.HalfFloatType }); // half float keeps the dark gradients smooth
+    const space = new THREE.Mesh(new THREE.SphereGeometry(10, 48, 24), backgroundMaterial());
+    new THREE.CubeCamera(1, 100, sky).update(renderer, new THREE.Scene().add(space));
+    dispose(space);
+    scene.background = sky.texture;
+  }
   {
     const rand = seededRandom("sky");
     const sky = { positions: [], tints: [], sizes: [] };

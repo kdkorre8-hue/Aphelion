@@ -147,7 +147,7 @@ const noise = /* glsl */ `
     return sum;
   }`;
 
-// Deep blue space with faint purple and teal nebulae, drawn on a huge sphere around everything
+// Deep blue space with faint purple and teal nebulae, drawn once into the galaxy's background cube map
 export function backgroundMaterial() {
   return new THREE.ShaderMaterial({
     vertexShader: /* glsl */ `
