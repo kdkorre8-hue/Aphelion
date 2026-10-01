@@ -220,6 +220,15 @@
     .song-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .song-bar { height: 2px; border-radius: 1px; background: var(--planet); opacity: 0.5; }
     .song-plays { color: var(--muted); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
+    /* the artists before and after this one along your timeline, kept at the bottom of the panel */
+    .panel-steps { position: sticky; bottom: -18px; z-index: 1; display: flex; justify-content: space-between; gap: 8px;
+      margin: 14px -22px -18px; padding: 10px 14px 12px; border-top: 1px solid var(--line); background: #0d0f1e;
+      box-shadow: 0 -10px 18px rgba(5, 6, 14, 0.55); }
+    .step { display: inline-flex; align-items: center; gap: 4px; max-width: 48%; padding: 6px 8px; border: 0; border-radius: 8px;
+      background: none; color: var(--muted); font-size: var(--fs-caption); cursor: pointer; }
+    .step:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); color: var(--text); }
+    .step:disabled { color: var(--faint); cursor: default; opacity: 0.6; }
+    .step-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .show-more { width: 100%; margin: -8px 0 12px; padding: 7px 12px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, 0.05);
       color: var(--muted); font-size: var(--fs-caption); cursor: pointer; }
     .show-more:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
