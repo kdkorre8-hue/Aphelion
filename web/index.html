@@ -89,6 +89,26 @@
     kbd { padding: 2px 6px; border: 1px solid var(--line); border-radius: 5px; background: rgba(255, 255, 255, 0.05); color: var(--muted);
       font: 500 var(--fs-micro)/1.2 var(--body); }
 
+    /* a window over a dimmed galaxy: the poster to share */
+    .modal { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; padding: 12px; background: rgba(3, 4, 10, 0.6); }
+    .modal-box { width: min(480px, 100%); max-height: calc(100vh - 24px); display: flex; flex-direction: column; gap: 14px; padding: 18px;
+      border-radius: 16px; border: 1px solid var(--line); background: rgba(13, 15, 30, 0.96); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6); }
+    .modal-head { position: relative; padding-right: 32px; }
+    .modal-head .card-close { top: -4px; right: -4px; }
+    .modal-title { margin: 0; font: var(--type-subheading); }
+    .share-formats { display: flex; gap: 6px; }
+    .share-formats button { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted);
+      font-size: var(--fs-small); cursor: pointer; }
+    .share-formats button[aria-checked="true"] { background: rgba(255, 255, 255, 0.1); color: var(--text); border-color: transparent; }
+    .share-preview { min-height: 0; flex: 1; display: grid; place-items: center; border-radius: 10px; background: #03040a; overflow: hidden; }
+    .share-preview img { display: block; max-width: 100%; max-height: 58vh; }
+    .share-preview img:not([src]) { width: 100%; aspect-ratio: 4 / 5; max-height: 58vh; }
+    .modal.making .share-preview { animation: making 1.2s ease-in-out infinite alternate; }
+    @keyframes making { to { background: #0d1020; } }
+    .share-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .share-note { font-size: var(--fs-caption); color: var(--faint); }
+    .button:disabled { opacity: 0.5; cursor: default; }
+
     /* search: a box in the upper middle of the screen, over a dimmed galaxy */
     .search { position: fixed; inset: 0; z-index: 25; display: grid; justify-items: center; align-items: start; padding: 12vh 12px 12px;
       background: rgba(3, 4, 10, 0.5); }
@@ -446,6 +466,24 @@
   <div id="toast" class="glass" role="status" hidden></div>
   <div id="tooltip" class="glass"></div>
   <div id="card" class="glass" role="dialog" hidden></div>
+
+  <div id="share" class="modal" role="dialog" aria-modal="true" aria-labelledby="share-title" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="share-title" class="modal-title">Share a poster of your galaxy</h2>
+        <button id="share-close" class="card-close" type="button" aria-label="Close"></button>
+      </div>
+      <div class="share-formats" role="radiogroup" aria-label="Size">
+        <button type="button" role="radio" data-format="post">Post · 4:5</button>
+        <button type="button" role="radio" data-format="story">Story · 9:16</button>
+      </div>
+      <div class="share-preview"><img id="share-image" alt="The poster of your galaxy"></div>
+      <div class="share-actions">
+        <span class="share-note">Made right here in your browser: nothing is uploaded.</span>
+        <button id="share-download" class="button primary" type="button">Download PNG</button>
+      </div>
+    </div>
+  </div>
 
   <div id="search" class="search" role="dialog" aria-modal="true" aria-label="Search your galaxy" hidden>
     <div class="search-box">
