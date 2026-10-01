@@ -180,7 +180,9 @@ async function main() {
 
   const stars = starMaterial(), soft = softMaterial();
   const clouds = cloudMaterial(cloudTexture(seededRandom("cloud")));
-  const pointMaterials = [stars, soft, clouds];
+  const sunGlow = softMaterial(); // the glow around a visited star's sun
+  sunGlow.uniforms.nearFade.value = 0; // it's meant to be big
+  const pointMaterials = [stars, soft, clouds, sunGlow];
 
   // Deep space all around. Its noise shader is expensive and never changes, so it's drawn once
   // into a cube map here instead of for every pixel on every frame.
@@ -447,6 +449,15 @@ async function main() {
     const sunRadius = 0.9 + 2.6 * info.weight;
     const sun = new THREE.Mesh(new THREE.SphereGeometry(sunRadius, 64, 32), sunMaterial(info.color.clone()));
     group.add(sun);
+    // A glow around the sun, a bright one and a wide halo, so the star you clicked visibly turns into it.
+    // Right at the star's own position, which the clearing around it leaves alone.
+    const glowColor = info.color.clone().multiplyScalar(info.shine);
+    const glow = makePoints({
+      positions: [...info.position.toArray(), ...info.position.toArray()],
+      tints: [...glowColor.clone().multiplyScalar(0.9).toArray(), ...glowColor.clone().multiplyScalar(0.28).toArray()],
+      sizes: [sunRadius * 7, sunRadius * 22],
+    }, sunGlow);
+    scene.add(glow);
 
     const orbits = new THREE.Group();
     orbits.rotation.x = (rand() - 0.5) * 0.3;
@@ -532,14 +543,15 @@ async function main() {
       const angle = (i / 32) * Math.PI * 2;
       return { p: new THREE.Vector3(Math.cos(angle) * extent, 0, Math.sin(angle) * extent).applyMatrix4(orbits.matrixWorld) };
     });
-    return { info, group, sun, targets, meshes, colors, byRank, extent, ring, era: makeEra(info) };
+    return { info, group, sun, glow, targets, meshes, colors, byRank, extent, ring, era: makeEra(info) };
   }
 
   function closeSystem() {
     if (!system) return;
-    scene.remove(system.group, system.era);
+    scene.remove(system.group, system.era, system.glow);
     dispose(system.group);
-    system.era.geometry.dispose(); // its material is shared, so keep that
+    system.era.geometry.dispose(); // their material is shared, so keep that
+    system.glow.geometry.dispose();
     planets.length = 0;
     system = null;
     selected = null;
