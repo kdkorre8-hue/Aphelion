@@ -241,7 +241,8 @@ def build():
 
 class QuietHandler(SimpleHTTPRequestHandler):
     # Windows sometimes reports .js as text/plain, and browsers then refuse to run it
-    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript", ".json": "application/json"}
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript", ".json": "application/json",
+                      ".svg": "image/svg+xml"}
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")  # always load the newest galaxy.json
