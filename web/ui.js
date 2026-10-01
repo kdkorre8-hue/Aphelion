@@ -19,6 +19,7 @@ export const format = {
   month: (time) => new Date(time * 1000).toLocaleDateString(LOCALE, { month: "short", year: "numeric", timeZone: "UTC" }),
   hours: (hours) => (hours >= 1 ? `${Math.round(hours).toLocaleString(LOCALE)} h` : `${Math.max(1, Math.round(hours * 60))} min`),
   count: (n, word) => `${n.toLocaleString(LOCALE)} ${word}${n === 1 ? "" : "s"}`,
+  shortDuration: (months) => (months >= 12 ? `${Math.round(months / 12)} yr${Math.round(months / 12) > 1 ? "s" : ""}` : `${months} mo`),
   duration(months) {
     const years = Math.floor(months / 12), rest = months % 12;
     return [years && `${years} year${years > 1 ? "s" : ""}`, rest && `${rest} month${rest > 1 ? "s" : ""}`].filter(Boolean).join(", ");
@@ -258,31 +259,95 @@ export const tooltip = {
 
 // ---------- artist panel ----------
 
-// Monthly plays across your whole timeline, so you can see when this artist was part of your life
-function drawTimeline(canvas, artist, data, color) {
+// Monthly plays across your whole listening life, so you can see when this artist was part of it. Laid out
+// like the spiral arm: months you listened get equal room, and long breaks shrink to a short dashed stretch
+// that says how long they were. The faint band runs from the first time you played the artist to the last,
+// and the dot marks the month you played them most. hover: a month to bring forward.
+function drawTimeline(canvas, artist, timeline, color, hover = null) {
   const ratio = window.devicePixelRatio || 1;
   const width = canvas.clientWidth, height = canvas.clientHeight;
-  canvas.width = width * ratio;
-  canvas.height = height * ratio;
+  if (canvas.width !== Math.round(width * ratio)) {
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+  }
   const ctx = canvas.getContext("2d");
-  ctx.scale(ratio, ratio);
-  const first = monthNumber(data.start);
-  const count = monthNumber(data.end) - first + 1;
-  const step = width / count;
-  const busiest = Math.max(...artist.months.map(([, n]) => n));
-  ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
-  ctx.fillRect(0, height - 1, width, 1);
-  ctx.fillStyle = color;
-  for (const [month, n] of artist.months) {
-    const barHeight = Math.max(2, (n / busiest) * (height - 4));
-    const barWidth = Math.max(1, step - 1);
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  const x = (time) => timeline.frac(time) * width;
+  const base = height - 1, room = base - 10; // 10px above the tallest bar for the peak dot
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+  ctx.fillRect(x(artist.first), 0, Math.max(2, x(artist.last) - x(artist.first)), base);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+  ctx.fillRect(0, base, width, 1);
+  ctx.font = `500 10px ${getComputedStyle(canvas).fontFamily}`;
+  ctx.textAlign = "center";
+  for (const b of timeline.breaks) {
+    const x0 = x(monthStart(b.from)), x1 = x(monthStart(b.to + 1));
+    ctx.clearRect(x0, base, x1 - x0, 1);
+    ctx.strokeStyle = "rgba(233, 235, 245, 0.35)";
+    ctx.setLineDash([2, 3]);
     ctx.beginPath();
-    ctx.roundRect((month - first) * step, height - barHeight, barWidth, barHeight, [Math.min(2, barWidth / 2), Math.min(2, barWidth / 2), 0, 0]);
+    ctx.moveTo(x0, base + 0.5);
+    ctx.lineTo(x1, base + 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const text = format.shortDuration(b.to - b.from + 1);
+    if (ctx.measureText(text).width + 8 < x1 - x0) {
+      ctx.fillStyle = "#7a81a3";
+      ctx.fillText(text, (x0 + x1) / 2, base - 5);
+    }
+  }
+
+  const busiest = Math.max(...artist.months.map(([, n]) => n));
+  const peak = monthNumber(artist.peak);
+  for (const [month, n] of artist.months) {
+    const left = x(monthStart(month)), right = x(monthStart(month + 1));
+    const w = Math.min(14, Math.max(1.5, right - left - 1.5)), h = Math.max(2, (n / busiest) * room);
+    const middle = (left + right) / 2;
+    ctx.globalAlpha = hover === null || hover === month ? 1 : 0.5;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(middle - w / 2, base - h, w, h, [Math.min(2, w / 2), Math.min(2, w / 2), 0, 0]);
     ctx.fill();
+    if (month === peak) {
+      ctx.beginPath();
+      ctx.arc(middle, base - h - 5, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  if (hover !== null) {
+    ctx.fillStyle = "rgba(233, 235, 245, 0.4)";
+    ctx.fillRect(Math.round((x(monthStart(hover)) + x(monthStart(hover + 1))) / 2), 0, 1, base);
   }
 }
 
-export function openPanel(artist, data, { color, ago, onClose, onSongEnter, onSongLeave, onSongClick }) {
+// Point at the chart to read one month: "Jul 2026 · 212 plays", or how long a break was
+function chartReadout(canvas, readout, artist, timeline, color) {
+  const plays = new Map(artist.months);
+  const show = (clientX) => {
+    const box = canvas.getBoundingClientRect();
+    const at = Math.min(Math.max((clientX - box.left) / box.width, 0), 0.9999);
+    const time = timeline.timeAt(at);
+    const month = monthNumber(time);
+    const gap = timeline.breaks.find((b) => month >= b.from && month <= b.to);
+    readout.textContent = gap
+      ? `${format.duration(gap.to - gap.from + 1)} without plays`
+      : `${format.month(monthStart(month))} · ${plays.has(month) ? format.count(plays.get(month), "play") : "no plays"}`;
+    readout.style.left = `${Math.min(Math.max(at * box.width, readout.offsetWidth / 2), box.width - readout.offsetWidth / 2)}px`;
+    readout.parentElement.classList.add("reading");
+    drawTimeline(canvas, artist, timeline, color, gap ? null : month);
+  };
+  canvas.onpointermove = (e) => show(e.clientX);
+  canvas.onpointerleave = () => {
+    readout.parentElement.classList.remove("reading");
+    drawTimeline(canvas, artist, timeline, color);
+  };
+}
+
+export function openPanel(artist, data, { color, ago, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
   panel.replaceChildren();
   panel.style.setProperty("--artist", color);
@@ -300,9 +365,12 @@ export function openPanel(artist, data, { color, ago, onClose, onSongEnter, onSo
     stats.append(box);
   }
 
+  const chart = el("div", "timeline-chart");
   const canvas = el("canvas", "timeline");
   const range = el("div", "timeline-range");
   range.append(el("span", "", format.month(data.start)), el("span", "", "today"));
+  const readout = el("div", "timeline-readout");
+  chart.append(canvas, range, readout);
 
   const list = el("ol", "songs");
   artist.songs.slice(0, 10).forEach((song, i) => {
@@ -328,8 +396,7 @@ export function openPanel(artist, data, { color, ago, onClose, onSongEnter, onSo
     el("p", "panel-sub", `Most played in ${format.month(artist.peak)} · last played ${format.ago(ago(artist.last))}`),
     stats,
     el("div", "section-title", "When you listened"),
-    canvas,
-    range,
+    chart,
     el("div", "section-title", "Top songs"),
     list,
     link,
@@ -337,7 +404,8 @@ export function openPanel(artist, data, { color, ago, onClose, onSongEnter, onSo
   panel.hidden = false;
   requestAnimationFrame(() => {
     panel.classList.add("open");
-    drawTimeline(canvas, artist, data, color);
+    drawTimeline(canvas, artist, timeline, color);
+    chartReadout(canvas, readout, artist, timeline, color);
   });
 }
 
