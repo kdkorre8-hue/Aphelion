@@ -30,6 +30,7 @@
       --interactive: #dfe7ff; /* links and actions stay neutral: in the galaxy, blue means played recently */
       --warm: #ffcf8a;
       --radius: 14px;
+      --settle: cubic-bezier(0.2, 0.8, 0.2, 1); /* quick, then easing into place */
       /* room the phone keeps for itself: the notch, the rounded corners, the home indicator */
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -109,7 +110,8 @@
     body.visiting .summary, body.visiting .badge { visibility: hidden; }
 
     /* map controls */
-    #controls { right: calc(20px + var(--safe-right)); bottom: calc(20px + var(--safe-bottom)); display: grid; gap: 2px; padding: 4px; border-radius: 12px; transition: right 0.35s ease; }
+    #controls { right: calc(20px + var(--safe-right)); bottom: calc(20px + var(--safe-bottom)); display: grid; gap: 2px; padding: 4px; border-radius: 12px;
+      transition: right 0.35s ease, opacity 0.7s ease var(--delay), transform 0.7s var(--settle) var(--delay); --delay: 0.3s; }
     #controls button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 9px; background: none;
       color: var(--muted); cursor: pointer; }
     #controls button:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
@@ -264,9 +266,19 @@
     /* hint */
     #hint { position: fixed; z-index: 10; left: 50%; bottom: calc(24px + var(--safe-bottom)); transform: translateX(-50%); padding: 8px 16px; border-radius: 999px;
       font-size: var(--fs-caption); color: #c9cde2; background: rgba(13, 15, 30, 0.5); border: 1px solid var(--line); backdrop-filter: blur(10px);
-      white-space: nowrap; transition: opacity 1.2s ease; pointer-events: none; }
+      white-space: nowrap; transition: opacity 1.2s ease var(--delay), transform 0.7s var(--settle) var(--delay); pointer-events: none; --delay: 0.45s; }
     #hint.gone { opacity: 0; }
     #hint b { font-weight: 500; color: var(--text); }
+
+    /* the arrival: while the camera flies in, the page's own parts wait, then come in one after another,
+       and the names in the galaxy last */
+    #topbar { transition: opacity 0.7s ease var(--delay), transform 0.7s var(--settle) var(--delay); --delay: 0s; }
+    #legend { transition: opacity 0.7s ease var(--delay), transform 0.7s var(--settle) var(--delay); --delay: 0.18s; }
+    body.intro #topbar { opacity: 0; transform: translateY(-8px); }
+    body.intro #legend, body.intro #controls { opacity: 0; transform: translateY(10px); }
+    body.intro #hint { opacity: 0; transform: translate(-50%, 10px); }
+    body.intro .label, body.intro-names .label.star { opacity: 0; }
+    body.intro :is(#topbar, #legend, #controls, #hint, .label) { transition: none; } /* hidden at once; only coming in is animated */
 
     /* labels in the 3D scene: names (stars, planets, milestones) and notes (time along the arm) */
     .label { white-space: nowrap; text-shadow: 0 0 6px #000, 0 0 12px #000; transition: opacity 0.3s; }
