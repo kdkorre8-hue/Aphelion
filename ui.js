@@ -587,7 +587,29 @@ function setupSheet(panel, grab, peekEnd, { onChange, onClose }) {
   };
 }
 
-export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSheet, onSongEnter, onSongLeave, onSongClick }) {
+// The artists before and after this one along your timeline, at the bottom of the panel: [before, after], each
+// { name, go } or nothing at the ends
+function panelSteps([before, after]) {
+  const steps = el("nav", "panel-steps");
+  steps.setAttribute("aria-label", "Along your timeline");
+  for (const [other, direction] of [[before, "left"], [after, "right"]]) {
+    const b = el("button", `step step-${direction}`);
+    b.type = "button";
+    if (!other) {
+      b.disabled = true;
+      b.append(el("span", "step-name", direction === "left" ? "First play" : "Today"));
+    } else {
+      b.title = `${direction === "left" ? "Before" : "After"} this artist along your timeline (${direction === "left" ? "←" : "→"})`;
+      b.append(el("span", "step-name", other.name));
+      b.onclick = other.go;
+    }
+    b[direction === "left" ? "prepend" : "append"](icon(direction));
+    steps.append(b);
+  }
+  return steps;
+}
+
+export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, steps, onClose, onSheet, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
   panel.replaceChildren();
   songRows.clear();
@@ -661,6 +683,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
     list,
     ...(more ? [more] : []),
     link,
+    panelSteps(steps),
   );
   panel.hidden = false;
   setupSheet(panel, head, stats, { onChange: onSheet, onClose });
