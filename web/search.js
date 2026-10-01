@@ -117,6 +117,7 @@ export function setupSearch(items, suggestions) {
   button.append(icon("search"), el("span", "action-label", "Search"), el("kbd", "", "/"));
   button.onclick = open;
   $("actions").append(button);
+  $("skip").onclick = open; // the keyboard's first stop on the page
 
   return { open, close };
 }

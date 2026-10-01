@@ -357,8 +357,8 @@ const cardBox = $("card");
 let cardItem = null, cardClosedAt = -Infinity;
 
 export const card = {
-  // actions: [{ label, icon, iconAfter, primary, onClick }]
-  show(item, { x, y, ago, actions }) {
+  // actions: [{ label, icon, iconAfter, primary, onClick }]; focus: move the focus to its first button
+  show(item, { x, y, ago, actions, focus = false }) {
     cardItem = item;
     cardBox.replaceChildren();
     const close = el("button", "card-close");
@@ -386,6 +386,7 @@ export const card = {
     const above = y - 16 - height;
     cardBox.style.left = `${Math.max(12, Math.min(x + 16, window.innerWidth - width - 12))}px`;
     cardBox.style.top = `${Math.max(12, Math.min(above >= 12 ? above : y + 16, window.innerHeight - height - 12))}px`;
+    if (focus) buttons.querySelector("button")?.focus({ preventScroll: true });
   },
   hide() {
     if (cardBox.hidden) return;
@@ -679,6 +680,7 @@ function panelSteps([before, after]) {
 
 export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, steps, onClose, onSheet, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
+  if (!panel.contains(document.activeElement)) returnFocus = document.activeElement; // before the old panel goes
   panel.replaceChildren();
   songRows.clear();
   panel.style.setProperty("--artist", color);
@@ -728,6 +730,12 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, s
   link.target = "_blank";
   link.rel = "noopener";
 
+  // the artist's name names the panel, and takes the focus when it opens, so the keyboard and screen readers
+  // carry on from there
+  const title = el("h2", "", artist.name);
+  title.id = "panel-title";
+  title.tabIndex = -1;
+
   // the top of the panel, which on phones is also where you drag the sheet
   const head = el("div", "panel-head");
   const handle = el("div", "sheet-handle");
@@ -735,7 +743,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, s
   head.append(
     handle,
     el("div", "eyebrow", `Artist · #${rank} of ${(data.stars.length + data.dust.length).toLocaleString("en-US")}`),
-    el("h2", "", artist.name),
+    title,
     el("p", "panel-sub", `Most played in ${format.month(artist.peak)} · last played ${format.ago(ago(artist.last))}`),
   );
 
@@ -755,6 +763,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, s
   );
   panel.hidden = false;
   setupSheet(panel, head, stats, { onChange: onSheet, onClose });
+  title.focus({ preventScroll: true });
   requestAnimationFrame(() => {
     panel.classList.add("open");
     drawTimeline(canvas, artist, timeline, color);
@@ -762,9 +771,21 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, s
   });
 }
 
+// When the panel closes, the focus goes back to where it was before it opened (the search, a button...)
+let returnFocus = null;
 export function closePanel() {
   const panel = $("panel");
+  const hadFocus = panel.contains(document.activeElement);
   panel.classList.remove("open");
   panel.hidden = true;
+  if (hadFocus && returnFocus?.isConnected && returnFocus !== document.body) returnFocus.focus({ preventScroll: true });
+  returnFocus = null;
+}
+
+// Say something to screen readers, without showing it: where you've gone, what you've picked
+export function announce(text) {
+  const box = $("announcer");
+  box.textContent = "";
+  requestAnimationFrame(() => { box.textContent = text; }); // a change, even when it's the same words again
 }
 

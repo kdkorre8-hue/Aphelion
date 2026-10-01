@@ -34,6 +34,7 @@ export function setupRecency({ longest, count, onChange }) {
   clearButton.append(icon("close"));
   clearButton.onclick = () => clear();
   const statusText = el("span", "", HINT);
+  status.setAttribute("aria-live", "polite");
   status.append(statusText, clearButton);
   row.append(...presets.map(([b]) => b));
   $("heat-ticks").after(status, row);

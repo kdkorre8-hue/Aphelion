@@ -59,6 +59,13 @@
     :focus-visible { outline: 2px solid var(--interactive); outline-offset: 2px; }
     :focus:not(:focus-visible) { outline: none; }
     #search-input:focus-visible { outline: none; } /* the box around it shows where you are */
+    /* for screen readers only */
+    .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+    /* the first stop for the keyboard, out of sight until then */
+    .skip { position: fixed; z-index: 40; top: calc(64px + var(--safe-top)); left: calc(20px + var(--safe-left)); transform: translateY(-300%);
+      padding: 8px 14px; border: 0; border-radius: 999px;
+      background: var(--interactive); color: #0d0f1e; font-weight: 500; cursor: pointer; }
+    .skip:focus-visible { transform: none; } /* under the logo */
     .icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .icon path { vector-effect: non-scaling-stroke; } /* 1.5px at any icon size */
     .icon.filled { fill: currentColor; }
@@ -204,6 +211,7 @@
       background: var(--glass-strong); opacity: 0; transform: translateX(16px); transition: opacity 0.35s ease, transform 0.35s ease; }
     #panel.open { opacity: 1; transform: none; }
     .sheet-handle { display: none; } /* phones only */
+    #panel h2:focus { outline: none; } /* focused to carry on from, not something to act on */
     #panel h2 { margin: 6px 0 4px; font: var(--type-title); letter-spacing: -0.01em; overflow-wrap: anywhere; }
     #panel h2::after { content: ""; display: block; width: 36px; height: 3px; border-radius: 2px; margin-top: 12px; background: var(--artist, var(--text)); }
     .panel-sub { margin: 10px 0 18px; color: var(--muted); font-size: var(--fs-small); }
@@ -427,6 +435,9 @@
       <circle cx="25.44" cy="9.26" r="4.6" fill="url(#mark-glow)"/><circle cx="25.44" cy="9.26" r="2.1" fill="#fff"/>
     </symbol>
   </svg>
+  <button id="skip" class="skip" type="button">Search your galaxy</button>
+  <div id="announcer" class="visually-hidden" aria-live="polite"></div>
+
   <header id="topbar">
     <button id="brand" class="brand" type="button" title="The whole galaxy (H)">
       <svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span class="wordmark">Aphelion</span>
@@ -441,7 +452,7 @@
     <div id="actions" class="actions"></div>
   </header>
 
-  <aside id="panel" class="glass" hidden></aside>
+  <aside id="panel" class="glass" aria-labelledby="panel-title" hidden></aside>
 
   <section id="legend" class="glass" aria-label="How to read the galaxy">
     <button id="legend-toggle" class="legend-toggle" type="button" aria-controls="legend-body"></button>
