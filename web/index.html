@@ -395,7 +395,9 @@
     #message { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); background: var(--bg); }
 
     @media (prefers-reduced-motion: reduce) {
-      .loader .mark, .pulse::after { animation: none; }
+      .loader .mark, .pulse::after, #story-text, #toast, .modal.making .share-preview { animation: none; }
+      #panel { transform: none; } /* it fades in and out without sliding */
+      #panel.settling { transition: opacity 0.35s ease; }
     }
     /* small screens: the totals on their own line, panel as a bottom sheet, the legend folded */
     @media (max-width: 760px) {

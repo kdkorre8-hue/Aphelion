@@ -1,6 +1,6 @@
 // Search your galaxy: artists (stars and dust) and songs, from a box opened with "/", Ctrl+K (Cmd+K on a Mac)
 // or the search button. Type to narrow it down, arrow keys to choose, Enter to go there.
-import { el, icon } from "./ui.js";
+import { el, icon, keepFocusIn } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
 const MAX_PER_GROUP = 8;
@@ -92,6 +92,7 @@ export function setupSearch(items, suggestions) {
 
   input.oninput = render;
   input.onkeydown = (e) => {
+    if (keepFocusIn(dialog, e)) return; // the box is all there is while it's open
     if (e.key === "ArrowDown") setActive(active + 1);
     else if (e.key === "ArrowUp") setActive(active - 1);
     else if (e.key === "Enter") choose(active);
