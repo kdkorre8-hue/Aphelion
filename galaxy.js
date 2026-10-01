@@ -342,6 +342,9 @@ async function main() {
     today.position.copy(onArm(1, 0, 5));
     Object.assign(milestones, { first, today });
     timeLabels.push(first, today);
+    // most important first, for when they'd cover each other
+    const order = (l) => ["milestone", "gap", "time"].findIndex((c) => l.element.classList.contains(c));
+    timeLabels.sort((a, b) => order(a) - order(b));
     scene.add(...timeLabels);
   }
 
@@ -498,24 +501,36 @@ async function main() {
     planet.userData.tag.element.classList.toggle("lit", on);
   }
 
-  // A planet's name fades out while it would cover the name of a more played song (or the one you point at)
-  const tagAt = new THREE.Vector3();
-  function declutterTags() {
-    const lit = (p) => p.userData.tag.element.classList.contains("lit");
-    const tagged = system.byRank.filter((p) => p.userData.tag.visible).sort((a, b) => lit(b) - lit(a)); // otherwise by rank
+  // A label fades out while it would cover a label that matters more, or stick out of the free part of the
+  // window, and comes back once there's room. Labels come most important first.
+  const labelAt = new THREE.Vector3();
+  function declutter(labels) {
     const placed = [];
-    for (const planet of tagged) {
-      const { tag } = planet.userData;
-      const { offsetWidth: w, offsetHeight: h } = tag.element; // 0 until the label renderer has drawn it once
-      if (!w) continue;
-      tag.getWorldPosition(tagAt).project(camera);
-      const x = ((tagAt.x + 1) / 2) * window.innerWidth, y = ((1 - tagAt.y) / 2) * window.innerHeight;
-      const box = [x - w / 2 - 4, y - h / 2, x + w / 2 + 4, y + h / 2];
-      const covered = placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
-      tag.element.classList.toggle("crowded", covered);
-      if (!covered) placed.push(box);
+    const left = insets.left, top = insets.top, right = window.innerWidth - insets.right, bottom = window.innerHeight - insets.bottom;
+    for (const l of labels) {
+      if (!l.visible) continue;
+      // measured once: it doesn't change, and reading it every frame makes the browser lay out the page again
+      l.userData.size ??= l.element.offsetWidth ? [l.element.offsetWidth, l.element.offsetHeight] : undefined; // 0 until drawn once
+      if (!l.userData.size) continue;
+      const [w, h] = l.userData.size;
+      l.getWorldPosition(labelAt).project(camera);
+      const x = ((labelAt.x + 1) / 2) * window.innerWidth - w * l.center.x;
+      const y = ((1 - labelAt.y) / 2) * window.innerHeight - h * l.center.y;
+      const box = [x - 4, y, x + w + 4, y + h];
+      const hidden = box[0] < left || box[2] > right || box[1] < top || box[3] > bottom
+        || placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
+      l.element.classList.toggle("crowded", hidden);
+      if (!hidden) placed.push(box);
     }
   }
+  // Labels first measured in a fallback font are measured again once the real fonts are in
+  document.fonts?.ready.then(() => scene.traverse((o) => { if (o.isCSS2DObject) delete o.userData.size; }));
+
+  // Planet names: the one you point at first, then by how much you played the song
+  const planetTags = () => {
+    const lit = (p) => p.userData.tag.element.classList.contains("lit");
+    return system.byRank.slice().sort((a, b) => lit(b) - lit(a)).map((p) => p.userData.tag);
+  };
   const openSong = (id) => window.open(`https://open.spotify.com/track/${id}`, "_blank", "noopener");
 
   // ---------- moving around ----------
@@ -813,7 +828,7 @@ async function main() {
     controls.update();
     updateHover();
     composer.render();
-    if (system) declutterTags();
+    declutter(system ? planetTags() : timeLabels);
     labelRenderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
