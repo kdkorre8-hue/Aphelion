@@ -16,6 +16,7 @@ import {
 } from "./shaders.js";
 import * as ui from "./ui.js";
 import { setupSearch } from "./search.js";
+import { setupScrubber } from "./scrubber.js";
 
 const TURNS = 2;                 // how many times the timeline winds around the center
 const INNER_RADIUS = 20;         // where your first play is
@@ -631,13 +632,13 @@ async function main() {
       if (!hidden) placed.push(box);
     }
   }
-  // The legend and the view toolbar sit over the scene, so labels make way for them too. They only move
+  // The legend, the view toolbar and the time strip sit over the scene, so labels make way for them too. They only move
   // when the layout changes, so they're measured twice a second rather than every frame.
   let chrome = [], chromeAt = -Infinity;
   function chromeBoxes() {
     if (performance.now() - chromeAt > 500) {
       chromeAt = performance.now();
-      chrome = ["legend", "controls"].map((id) => document.getElementById(id).getBoundingClientRect())
+      chrome = ["legend", "controls", "scrubber"].map((id) => document.getElementById(id).getBoundingClientRect())
         .filter((r) => r.width > 0).map((r) => [r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
     }
     return chrome;
@@ -725,13 +726,13 @@ async function main() {
 
   // ---------- framing: fit what you look at into the part of the window that's free ----------
 
-  // Free means below the top bar and above the hint at the bottom, and while you visit a star, left of the
-  // artist panel (or above it on phones, where it's a sheet at the bottom)
+  // Free means below the top bar and above the time strip at the bottom, and while you visit a star, left of
+  // the artist panel (or above it on phones, where it's a sheet at the bottom)
   function measureInsets(visiting) {
     const bar = [...document.getElementById("topbar").children].map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0);
     const free = { left: 0, top: Math.max(0, ...bar.map((r) => r.bottom)) + 8, right: 0, bottom: 0 };
-    const hint = document.getElementById("hint").getBoundingClientRect();
-    if (hint.height) free.bottom = window.innerHeight - hint.top + 8;
+    const strip = document.getElementById("scrubber").getBoundingClientRect();
+    if (strip.height) free.bottom = window.innerHeight - strip.top + 8;
     const panel = document.getElementById("panel");
     if (visiting && !panel.hidden) { // (offsetTop and offsetLeft leave out the panel's slide-in)
       if (phone.matches) free.bottom = window.innerHeight - panel.offsetTop + 8;
@@ -824,6 +825,7 @@ async function main() {
   }
 
   function visit(info, { seconds = 1.6 } = {}) {
+    scrubber.release(); // the strip hides while you visit
     closeSystem();
     system = openSystem(info);
     openClearing(info.position, system.extent + 6);
@@ -935,7 +937,7 @@ async function main() {
 
   ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
   const keys = {
-    Escape: () => (ui.card.isOpen ? ui.card.hide() : selected ? clearSong() : system && goHome()), // one step back at a time
+    Escape: () => (ui.card.isOpen ? ui.card.hide() : selected ? clearSong() : system ? goHome() : scrubber.release()), // one step back at a time
     h: showWholeGalaxy,
     "+": () => zoom(0.7), "=": () => zoom(0.7),
     "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
@@ -1003,7 +1005,7 @@ async function main() {
     if (hovered?.kind === "star") {
       setStarSize(hovered, 1);
       hovered.name.element.classList.remove("lit");
-      if (!system) setEmphasis(null);
+      if (!system && !timeFocus) setEmphasis(null);
     }
     if (hovered?.planet) highlightSong(hovered.song, false);
     if (hovered?.kind === "song") ui.highlightRow(hovered.song, false);
@@ -1017,7 +1019,7 @@ async function main() {
     if (item.kind === "star") {
       setStarSize(item, 1.35);
       item.name.element.classList.add("lit");
-      if (!system) setEmphasis((info) => (info === item ? 1 : 0)); // the rest of the galaxy steps back
+      if (!system && !timeFocus) setEmphasis((info) => (info === item ? 1 : 0)); // the rest of the galaxy steps back
       if (system?.info !== item) hoverEra = makeEra(item);
     }
     if (item.planet) highlightSong(item.song, true);
@@ -1054,6 +1056,43 @@ async function main() {
     }
     else if (item.kind === "song") selectSong(item.song);
     else if (item.kind === "dust") showDust(item, e.clientX, e.clientY);
+  });
+
+  // ---------- one month at a time ----------
+
+  // The time strip lights up the stars of one month (and the dust of artists you knew then), and marks the
+  // month on the arm with a glow and a faint beam
+  let timeFocus = false;
+  const monthsOf = new Map(starInfo.map((info) => [info, new Set(info.artist.months.map(([m]) => m))]));
+  const playsIn = new Map(data.months);
+  const topIn = new Map(); // month -> [the artist you played most, how often]
+  for (const info of starInfo) {
+    for (const [m, n] of info.artist.months) if ((topIn.get(m)?.[1] ?? 0) < n) topIn.set(m, [info.artist.name, n]);
+  }
+  const monthMarker = new THREE.Group();
+  monthMarker.add(makePoints({ positions: [0, 0, 0], tints: [0.5, 0.72, 1], sizes: [26] }, sunGlow));
+  monthMarker.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -4, 0), new THREE.Vector3(0, 70, 0)]),
+    new THREE.LineBasicMaterial({ color: "#9fd4ff", transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }),
+  ));
+  monthMarker.visible = false;
+  scene.add(monthMarker);
+  const scrubber = setupScrubber({
+    timeline, data,
+    colorAt: (time) => `#${heatColor(daysAgo(time)).getHexString()}`,
+    describe: (m) => [
+      ui.format.month(ui.monthStart(m)),
+      playsIn.has(m) ? ui.format.count(playsIn.get(m), "play") : "no plays",
+      topIn.has(m) && `most played: ${topIn.get(m)[0]}`,
+    ].filter(Boolean).join(" · "),
+    onChange(m) {
+      timeFocus = m !== null;
+      monthMarker.visible = timeFocus;
+      if (!timeFocus) return setEmphasis(null);
+      const start = ui.monthStart(m), end = ui.monthStart(m + 1);
+      setEmphasis((info) => (monthsOf.get(info).has(m) ? 1 : 0), (artist) => (artist.first < end && artist.last >= start ? 1 : 0));
+      monthMarker.position.copy(onArm(frac(start + 15 * DAY)));
+    },
   });
 
   // ---------- search ----------
