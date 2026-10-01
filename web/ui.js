@@ -1,7 +1,7 @@
 // Everything on the page around the 3D view: header, tooltip, breadcrumb, artist panel, hints.
 const $ = (id) => document.getElementById(id);
 
-function el(tag, className, text) {
+export function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;

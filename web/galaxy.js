@@ -15,6 +15,7 @@ import {
   backgroundMaterial, sunMaterial, atmosphereMaterial, planetTexture,
 } from "./shaders.js";
 import * as ui from "./ui.js";
+import { setupSearch } from "./search.js";
 
 const TURNS = 2;                 // how many times the timeline winds around the center
 const INNER_RADIUS = 20;         // where your first play is
@@ -755,8 +756,8 @@ async function main() {
     else camera.position.copy(target).addScaledVector(dir, distance);
   }
 
-  function flyTo(target, distance, dir = niceDirection(), seconds = 1.6) {
-    flight = { t: 0, seconds, target: target.clone(), distance, dir, fromTarget: controls.target.clone(), fromCamera: camera.position.clone() };
+  function flyTo(target, distance, dir = niceDirection(), seconds = 1.6, onArrive = null) {
+    flight = { t: 0, seconds, target: target.clone(), distance, dir, onArrive, fromTarget: controls.target.clone(), fromCamera: camera.position.clone() };
     controls.enabled = false;
     controls.autoRotate = false;
   }
@@ -808,7 +809,7 @@ async function main() {
     flyTo(info.position, fitDistance(system.ring, info.position, dir, insets), dir);
   }
 
-  function goHome() {
+  function leaveSystem() {
     closeSystem();
     clearing.target = 0;
     showOverviewLabels(true);
@@ -816,8 +817,31 @@ async function main() {
     ui.setLegendMode("galaxy");
     ui.closePanel();
     insets = measureInsets(false);
+  }
+
+  function goHome() {
+    leaveSystem();
     userMoved = false;
     flyTo(home.target, home.distance, home.dir);
+  }
+
+  // A speck of dust's card, at a point on the screen
+  function showDust(item, x, y) {
+    ui.card.show(item, {
+      x, y, ago: daysAgo,
+      actions: [{ label: "Play the top song", icon: "play", iconAfter: "external", primary: true, onClick: () => openSong(item.artist.top_song.id) }],
+    });
+  }
+
+  // Fly to a speck of dust (found by searching) and open its card there
+  function visitDust(index) {
+    if (system) leaveSystem();
+    userMoved = true; // a view of its own, not one to keep fitted
+    const position = dustPositions[index];
+    flyTo(position, 70, niceDirection(), 1.6, () => {
+      const p = position.clone().project(camera);
+      showDust({ kind: "dust", artist: data.dust[index] }, ((p.x + 1) / 2) * window.innerWidth, ((1 - p.y) / 2) * window.innerHeight);
+    });
   }
 
   ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
@@ -938,13 +962,33 @@ async function main() {
       } else visit(item);
     }
     else if (item.kind === "song") selectSong(item.song);
-    else if (item.kind === "dust") {
-      ui.card.show(item, {
-        x: e.clientX, y: e.clientY, ago: daysAgo,
-        actions: [{ label: "Play the top song", icon: "play", iconAfter: "external", primary: true, onClick: () => openSong(item.artist.top_song.id) }],
-      });
-    }
+    else if (item.kind === "dust") showDust(item, e.clientX, e.clientY);
   });
+
+  // ---------- search ----------
+
+  {
+    const dot = (time) => `#${heatColor(daysAgo(time)).getHexString()}`; // colored by when you last played it
+    const items = [
+      ...starInfo.map((info) => ({
+        group: "Artists", name: info.artist.name, meta: `${ui.format.hours(info.artist.hours)} · #${info.index + 1}`,
+        color: dot(info.artist.last), weight: info.artist.hours, pick: () => visit(info),
+      })),
+      ...data.dust.map((artist, index) => ({
+        group: "Artists", name: artist.name, meta: ui.format.count(artist.plays, "play"),
+        color: dot(artist.last), weight: artist.hours, pick: () => visitDust(index),
+      })),
+      ...starInfo.flatMap((info) => info.artist.songs.map((song) => ({
+        group: "Songs", name: song.name, meta: `${info.artist.name} · ${ui.format.count(song.plays, "play")}`,
+        color: dot(song.last), weight: song.plays,
+        pick: () => {
+          if (system?.info !== info) visit(info);
+          selectSong(song);
+        },
+      }))),
+    ];
+    setupSearch(items, items.slice(0, 6)); // until you type: your top six artists
+  }
 
   // ---------- animation ----------
 
@@ -993,8 +1037,10 @@ async function main() {
       controls.target.lerpVectors(flight.fromTarget, flight.target, k);
       camera.position.lerpVectors(flight.fromCamera, flight.target.clone().addScaledVector(flight.dir, flight.distance), k);
       if (flight.t === 1) {
+        const { onArrive } = flight;
         flight = null;
         controls.enabled = true;
+        onArrive?.();
       }
     }
     updateViewShift(dt);
