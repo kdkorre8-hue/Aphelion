@@ -537,12 +537,13 @@ async function main() {
     system.era.geometry.dispose(); // its material is shared, so keep that
     planets.length = 0;
     system = null;
+    selected = null;
   }
 
-  // Highlight a planet when you point at its song in the panel
+  // Highlight a planet when you point at its song in the panel (the selected song's stays highlighted)
   function highlightSong(song, on) {
     const planet = system?.meshes.get(song);
-    if (!planet) return;
+    if (!planet || (!on && song === selected)) return;
     planet.scale.setScalar(on ? 1.25 : 1);
     planet.userData.tag.visible = on || (planet.userData.named && namesOn);
     planet.userData.tag.element.classList.toggle("lit", on);
@@ -629,6 +630,25 @@ async function main() {
     }
   }
   const openSong = (id) => window.open(`https://open.spotify.com/track/${id}`, "_blank", "noopener");
+  const colorOf = (song) => system?.colors.get(song) ?? BELT_COLOR; // a song's planet color; the belt's for the rest
+
+  // The song you clicked, on a planet, an asteroid or in the list: its planet stays big and named, and the
+  // panel shows its card
+  let selected = null;
+  function selectSong(song) {
+    const previous = selected;
+    selected = song;
+    if (previous && previous !== song) highlightSong(previous, false);
+    highlightSong(song, true);
+    ui.showSong(song, system.info.artist, { ago: daysAgo, colorOf, onPlay: (s) => openSong(s.id), onClear: clearSong });
+  }
+  function clearSong() {
+    if (!selected) return;
+    const song = selected;
+    selected = null;
+    highlightSong(song, false);
+    ui.clearSong();
+  }
 
   // ---------- moving around ----------
 
@@ -751,12 +771,12 @@ async function main() {
       color: `#${info.color.getHexString()}`,
       ago: daysAgo,
       rank: info.index + 1, // stars come most listened first
-      colorOf: (song) => system.colors.get(song) ?? BELT_COLOR,
+      colorOf,
       timeline,
       onClose: goHome,
       onSongEnter: (song) => highlightSong(song, true),
       onSongLeave: (song) => highlightSong(song, false),
-      onSongClick: (song) => openSong(song.id),
+      onSongClick: selectSong,
     });
     insets = measureInsets(true); // with the panel open
     const dir = niceDirection();
@@ -778,7 +798,7 @@ async function main() {
 
   ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
   const keys = {
-    Escape: () => system && goHome(),
+    Escape: () => (selected ? clearSong() : system && goHome()), // one step back at a time
     h: showWholeGalaxy,
     "+": () => zoom(0.7), "=": () => zoom(0.7),
     "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
@@ -874,7 +894,7 @@ async function main() {
     if (hovered && pointerAt) ui.tooltip.move(...pointerAt);
   }
 
-  // A click (not a drag) visits a star or opens a song in Spotify
+  // A click (not a drag) visits a star, selects a song, or plays a dust speck's top song in Spotify
   let downAt = null;
   renderer.domElement.addEventListener("pointerdown", (e) => { downAt = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener("pointerup", (e) => {
@@ -884,7 +904,7 @@ async function main() {
     if (!item) return;
     setHovered(null);
     if (item.kind === "star" && system?.info !== item) visit(item);
-    else if (item.kind === "song") openSong(item.song.id);
+    else if (item.kind === "song") selectSong(item.song);
     else if (item.kind === "dust") openSong(item.artist.top_song.id);
   });
 
