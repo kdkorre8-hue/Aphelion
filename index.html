@@ -56,6 +56,9 @@
     canvas { display: block; }
     button { font: inherit; color: inherit; }
     [hidden] { display: none !important; } /* otherwise a display rule below wins and the hidden box blocks the mouse */
+    :focus-visible { outline: 2px solid var(--interactive); outline-offset: 2px; }
+    :focus:not(:focus-visible) { outline: none; }
+    #search-input:focus-visible { outline: none; } /* the box around it shows where you are */
     .icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .icon path { vector-effect: non-scaling-stroke; } /* 1.5px at any icon size */
     .icon.filled { fill: currentColor; }
@@ -226,11 +229,12 @@
     .timeline-chart.reading .timeline-readout { opacity: 1; }
     .timeline-chart.reading .timeline-range { visibility: hidden; }
     .songs { list-style: none; margin: 8px 0 16px; padding: 0; }
-    .songs li { display: grid; grid-template-columns: 18px 22px 1fr auto; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px;
-      border-radius: 8px; cursor: pointer; font-size: var(--fs-small); }
-    .songs li:hover { background: rgba(255, 255, 255, 0.06); }
-    .songs li.lit { background: rgba(255, 255, 255, 0.08); box-shadow: inset 2px 0 0 var(--planet); } /* you point at its planet */
-    .songs li.selected { background: rgba(255, 255, 255, 0.1); box-shadow: inset 2px 0 0 var(--planet); }
+    .songs li { margin: 0 -8px; }
+    .song-row { width: 100%; display: grid; grid-template-columns: 18px 22px 1fr auto; align-items: center; gap: 10px; padding: 6px 8px;
+      border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; font-size: var(--fs-small); }
+    .song-row:hover { background: rgba(255, 255, 255, 0.06); }
+    .songs li.lit .song-row { background: rgba(255, 255, 255, 0.08); box-shadow: inset 2px 0 0 var(--planet); } /* you point at its planet */
+    .songs li.selected .song-row { background: rgba(255, 255, 255, 0.1); box-shadow: inset 2px 0 0 var(--planet); }
 
     /* the song you clicked */
     .song-card { margin: 10px 0 12px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
@@ -437,8 +441,6 @@
     <div id="actions" class="actions"></div>
   </header>
 
-  <div id="controls" class="glass" role="toolbar" aria-label="View"></div>
-
   <aside id="panel" class="glass" hidden></aside>
 
   <section id="legend" class="glass" aria-label="How to read the galaxy">
@@ -481,6 +483,8 @@
       <div id="scrubber-thumb" class="scrubber-thumb" role="slider" tabindex="0" aria-label="Month"></div>
     </div>
   </section>
+
+  <div id="controls" class="glass" role="toolbar" aria-label="View"></div>
 
   <div id="hint"><b>Drag</b> to orbit · <b>scroll</b> to zoom · <b>click a star</b> to fly in</div>
   <div id="toast" class="glass" role="status" hidden></div>

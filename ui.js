@@ -546,11 +546,16 @@ function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onS
   const bar = el("span", "song-bar");
   bar.style.width = `${Math.max(2, (song.plays / mostPlays) * 100)}%`;
   text.append(el("span", "song-name", song.name), bar);
-  item.append(el("span", "song-rank", String(rank)), art, text, el("span", "song-plays", format.compact(song.plays)));
-  item.title = `${song.name} · ${format.count(song.plays, "play")}`;
-  item.onmouseenter = () => onSongEnter(song);
-  item.onmouseleave = () => onSongLeave(song);
-  item.onclick = () => onSongClick(song);
+  // a button, so the keyboard reaches it too: focusing it lights its planet like pointing at it does
+  const row = el("button", "song-row");
+  row.type = "button";
+  row.append(el("span", "song-rank", String(rank)), art, text, el("span", "song-plays", format.compact(song.plays)));
+  row.title = `${song.name} · ${format.count(song.plays, "play")}`;
+  row.setAttribute("aria-label", `${rank}. ${song.name}, ${format.count(song.plays, "play")}`);
+  row.onmouseenter = row.onfocus = () => onSongEnter(song);
+  row.onmouseleave = row.onblur = () => onSongLeave(song);
+  row.onclick = () => onSongClick(song);
+  item.append(row);
   return item;
 }
 
