@@ -98,6 +98,16 @@ export function doneLoading() {
   $("loading").classList.add("done");
 }
 
+// A short message under the top bar, gone after a few seconds
+let toastTimer = 0;
+export function toast(text) {
+  const box = $("toast");
+  box.textContent = text;
+  box.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { box.hidden = true; }, 4000);
+}
+
 export function setupHeader(data, onHome) {
   const artists = data.stars.length + data.dust.length;
   $("summary").textContent = [

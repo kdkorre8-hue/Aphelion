@@ -663,6 +663,7 @@ async function main() {
     selected = song;
     if (previous && previous !== song) highlightSong(previous, false);
     highlightSong(song, true);
+    setAddress(addressOf(system.info, song), true); // the song refines the star's address, so Back skips it
     ui.showSong(song, system.info.artist, { ago: daysAgo, colorOf, onPlay: (s) => openSong(s.id), onClear: clearSong });
   }
   function clearSong() {
@@ -671,6 +672,7 @@ async function main() {
     selected = null;
     highlightSong(song, false);
     ui.clearSong();
+    if (system) setAddress(addressOf(system.info), true);
   }
 
   // ---------- moving around ----------
@@ -791,6 +793,8 @@ async function main() {
     showOverviewLabels(false);
     ui.showCrumb(info.artist.name, goHome);
     ui.setLegendMode("system");
+    document.title = `${info.artist.name} · Aphelion`;
+    setAddress(addressOf(info));
     ui.openPanel(info.artist, data, {
       color: `#${info.color.getHexString()}`,
       ago: daysAgo,
@@ -811,6 +815,8 @@ async function main() {
 
   function leaveSystem() {
     closeSystem();
+    document.title = "Aphelion";
+    setAddress("#/");
     clearing.target = 0;
     showOverviewLabels(true);
     ui.hideCrumb();
@@ -843,6 +849,39 @@ async function main() {
       showDust({ kind: "dust", artist: data.dust[index] }, ((p.x + 1) / 2) * window.innerWidth, ((1 - p.y) / 2) * window.innerHeight);
     });
   }
+
+  // ---------- addresses ----------
+
+  // Every star has an address (#/artist/Drake), and so does a selected song (#/artist/Drake/song/<id>), so the
+  // Back button, reloading the page and links you keep or share take you back to it
+  const addressOf = (info, song) => `#/artist/${encodeURIComponent(info.artist.name)}${song ? `/song/${song.id}` : ""}`;
+  let following = false; // while going where an address says, which shouldn't add to the history again
+  function setAddress(hash, replace = false) {
+    if (following || location.hash === hash) return;
+    history[replace ? "replaceState" : "pushState"](null, "", hash);
+  }
+  function follow(hash) {
+    following = true;
+    try {
+      const [, name, songId] = /^#\/artist\/([^/]+)(?:\/song\/([^/]+))?$/.exec(hash) ?? [];
+      const info = name && starInfo.find((s) => s.artist.name === decodeURIComponent(name));
+      if (!info) {
+        if (name) {
+          ui.toast(`${decodeURIComponent(name)} isn't one of the stars in your galaxy`);
+          history.replaceState(null, "", "#/");
+        }
+        if (system) goHome();
+        return;
+      }
+      if (system?.info !== info) visit(info);
+      const song = songId && info.artist.songs.find((s) => s.id === songId);
+      if (song) selectSong(song);
+      else clearSong();
+    } finally {
+      following = false;
+    }
+  }
+  window.addEventListener("popstate", () => follow(location.hash));
 
   ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
   const keys = {
@@ -1005,6 +1044,7 @@ async function main() {
   }
   ui.setupHint(renderer.domElement);
   window.addEventListener("resize", reframe);
+  if (location.hash.startsWith("#/artist/")) follow(location.hash); // a link to a star: arrive there instead
 
   // Shift the picture so what you look at sits in the middle of the free part of the window
   const viewShift = { x: 0, y: 0 };

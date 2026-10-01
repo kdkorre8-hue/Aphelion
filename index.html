@@ -236,6 +236,12 @@
     .tip-meta { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }
     .tip-hint { color: var(--interactive); font-size: var(--fs-caption); font-weight: 500; margin-top: 5px; }
 
+    /* a short message under the top bar */
+    #toast { top: calc(68px + var(--safe-top)); left: 50%; transform: translateX(-50%); z-index: 22; padding: 9px 16px; border-radius: 999px;
+      font-size: var(--fs-small); background: var(--glass-strong); white-space: nowrap; max-width: calc(100vw - 24px);
+      overflow: hidden; text-overflow: ellipsis; animation: toast-in 0.25s ease; }
+    @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -6px); } }
+
     /* a card for something you clicked that has no page of its own, pinned where you clicked */
     #card { z-index: 15; display: flex; gap: 12px; align-items: flex-start; max-width: 340px; padding: 14px 16px; border-radius: 14px;
       background: var(--glass-strong); }
@@ -353,6 +359,7 @@
   </section>
 
   <div id="hint"><b>Drag</b> to orbit · <b>scroll</b> to zoom · <b>click a star</b> to fly in</div>
+  <div id="toast" class="glass" role="status" hidden></div>
   <div id="tooltip" class="glass"></div>
   <div id="card" class="glass" role="dialog" hidden></div>
 
