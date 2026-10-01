@@ -847,6 +847,7 @@ async function main() {
       if (!system) setEmphasis(null);
     }
     if (hovered?.planet) highlightSong(hovered.song, false);
+    if (hovered?.kind === "song") ui.highlightRow(hovered.song, false);
     if (hoverEra) { scene.remove(hoverEra); hoverEra.geometry.dispose(); hoverEra = null; }
     hovered = item;
     if (!item) {
@@ -861,6 +862,7 @@ async function main() {
       if (system?.info !== item) hoverEra = makeEra(item);
     }
     if (item.planet) highlightSong(item.song, true);
+    if (item.kind === "song") ui.highlightRow(item.song, true);
     ui.tooltip.show(item, { ago: daysAgo, visiting: system?.info === item });
     renderer.domElement.style.cursor = "pointer";
   }
