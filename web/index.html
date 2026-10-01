@@ -155,7 +155,8 @@
     #hint b { font-weight: 500; color: var(--text); }
 
     /* labels in the 3D scene: names (stars, planets, milestones) and notes (time along the arm) */
-    .label { white-space: nowrap; text-shadow: 0 0 6px #000, 0 0 12px #000; }
+    .label { white-space: nowrap; text-shadow: 0 0 6px #000, 0 0 12px #000; transition: opacity 0.3s; }
+    .label.crowded { opacity: 0; } /* it would cover a more important label, or stick out of view */
     .label.name { font: 500 var(--fs-caption)/1.2 var(--body); color: rgba(232, 236, 250, 0.86); }
     .label.note { font: var(--type-eyebrow); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(200, 208, 235, 0.7); }
     .label.gap { font: italic 500 var(--fs-micro)/1 var(--body); letter-spacing: 0.02em; text-transform: none; }
@@ -165,7 +166,6 @@
     .pulse::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 1px solid #72d0ff; animation: ping 2.4s ease-out infinite; }
     @keyframes ping { from { transform: scale(0.4); opacity: 0.9; } to { transform: scale(1.8); opacity: 0; } }
     .label.planet { font-size: var(--fs-micro); transition: color 0.2s, opacity 0.3s; }
-    .label.planet.crowded { opacity: 0; }
     .label.planet.lit { color: #fff; font-weight: 600; }
 
     /* loading and messages */
