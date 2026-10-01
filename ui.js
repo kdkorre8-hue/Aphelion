@@ -347,9 +347,75 @@ function chartReadout(canvas, readout, artist, timeline, color) {
   };
 }
 
-export function openPanel(artist, data, { color, ago, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
+// The most months in a row you played the artist (months are in order)
+function longestStreak(months) {
+  let best = 0, run = 0, previous = null;
+  for (const [month] of months) {
+    run = month === previous + 1 ? run + 1 : 1;
+    best = Math.max(best, run);
+    previous = month;
+  }
+  return best;
+}
+
+// The artist next to the rest of your listening: their share of it, their longest streak, and how you met
+function artistFacts(artist, data) {
+  const facts = el("dl", "facts");
+  const fact = (term, ...description) => {
+    const row = el("div", "fact");
+    const value = el("dd");
+    value.append(...description);
+    row.append(el("dt", "", term), value);
+    facts.append(row);
+  };
+  const share = artist.hours / Math.max(data.hours, 0.1);
+  const meter = el("span", "meter");
+  meter.append(el("span"));
+  meter.firstChild.style.width = `${Math.min(100, Math.max(3, share * 100))}%`;
+  fact("Share", `${share < 0.01 ? "Under 1" : Math.round(share * 100)}% of your listening`, meter);
+  const streak = longestStreak(artist.months);
+  if (streak > 1) fact("Streak", `${streak} months in a row`);
+  const firstSong = artist.songs.reduce((a, b) => (b.first < a.first ? b : a));
+  fact("First heard", el("span", "fact-text", `${format.month(artist.first)} · ${firstSong.name}`));
+  return facts;
+}
+
+// A song in the list: a small planet in its planet's color (its album art, ringed in that color, when there is
+// one), its name over a bar for its share of the artist's plays, and its plays
+const songRows = new Map(); // song -> its row in the open panel
+function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onSongClick }) {
+  const item = el("li");
+  songRows.set(song, item);
+  item.style.setProperty("--planet", colorOf(song));
+  const art = el("span", "song-art");
+  if (song.image) {
+    const img = el("img");
+    img.src = song.image;
+    img.alt = "";
+    img.loading = "lazy";
+    art.append(img);
+  }
+  const text = el("span", "song-text");
+  const bar = el("span", "song-bar");
+  bar.style.width = `${Math.max(2, (song.plays / mostPlays) * 100)}%`;
+  text.append(el("span", "song-name", song.name), bar);
+  item.append(el("span", "song-rank", String(rank)), art, text, el("span", "song-plays", format.compact(song.plays)));
+  item.title = `${song.name} · ${format.count(song.plays, "play")} · click to open in Spotify`;
+  item.onmouseenter = () => onSongEnter(song);
+  item.onmouseleave = () => onSongLeave(song);
+  item.onclick = () => onSongClick(song);
+  return item;
+}
+
+// Pointing at a planet (or an asteroid) lights up its song in the list
+export function highlightRow(song, on) {
+  songRows.get(song)?.classList.toggle("lit", on);
+}
+
+export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
   panel.replaceChildren();
+  songRows.clear();
   panel.style.setProperty("--artist", color);
 
   const close = el("button", "panel-close");
@@ -372,16 +438,22 @@ export function openPanel(artist, data, { color, ago, timeline, onClose, onSongE
   const readout = el("div", "timeline-readout");
   chart.append(canvas, range, readout);
 
+  // The top 10, and the rest on request
   const list = el("ol", "songs");
-  artist.songs.slice(0, 10).forEach((song, i) => {
-    const item = el("li");
-    item.append(el("span", "song-rank", String(i + 1)), el("span", "song-name", song.name), el("span", "song-plays", format.compact(song.plays)));
-    item.title = `${song.name} · ${format.count(song.plays, "play")} · click to open in Spotify`;
-    item.onmouseenter = () => onSongEnter(song);
-    item.onmouseleave = () => onSongLeave(song);
-    item.onclick = () => onSongClick(song);
-    list.append(item);
-  });
+  const handlers = { onSongEnter, onSongLeave, onSongClick };
+  const mostPlays = artist.songs[0]?.plays || 1;
+  const addRows = (from, to) => artist.songs.slice(from, to).forEach((song, i) => list.append(songRow(song, from + i + 1, mostPlays, colorOf, handlers)));
+  addRows(0, 10);
+  let more = null;
+  if (artist.songs.length > 10) {
+    more = el("button", "show-more", artist.songs.length === artist.song_count
+      ? `Show all ${artist.songs.length} songs` : `Show the top ${artist.songs.length} songs`);
+    more.type = "button";
+    more.onclick = () => {
+      addRows(10, artist.songs.length);
+      more.remove();
+    };
+  }
 
   const link = el("a", "spotify-link", "Find on Spotify");
   link.append(icon("external"));
@@ -391,14 +463,16 @@ export function openPanel(artist, data, { color, ago, timeline, onClose, onSongE
 
   panel.append(
     close,
-    el("div", "eyebrow", "Artist"),
+    el("div", "eyebrow", `Artist · #${rank} of ${(data.stars.length + data.dust.length).toLocaleString("en-US")}`),
     el("h2", "", artist.name),
     el("p", "panel-sub", `Most played in ${format.month(artist.peak)} · last played ${format.ago(ago(artist.last))}`),
     stats,
+    artistFacts(artist, data),
     el("div", "section-title", "When you listened"),
     chart,
     el("div", "section-title", "Top songs"),
     list,
+    ...(more ? [more] : []),
     link,
   );
   panel.hidden = false;
