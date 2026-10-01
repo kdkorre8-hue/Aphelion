@@ -158,10 +158,12 @@ export function hideCrumb() {
 // ---------- tooltip ----------
 
 const tip = $("tooltip");
+let tipAbove = false;
 
 export const tooltip = {
   // item: { kind: "star" | "dust" | "song", artist, song?, asteroid? }; ago: time -> days since
   show(item, { ago, visiting }) {
+    tipAbove = item.kind !== "song"; // star names hang below their stars, planet names sit above their planets
     tip.replaceChildren();
     const text = el("div", "tip-text");
     const add = (content, className) => text.append(el("div", className, content));
@@ -192,9 +194,13 @@ export const tooltip = {
     tip.append(text);
     tip.classList.add("shown");
   },
+  // Beside the pointer, on the side away from the name of what you point at (flipped if there's no room)
   move(x, y) {
+    const height = tip.offsetHeight;
+    const above = y - 18 - height, below = y + 18;
+    const top = tipAbove ? (above >= 12 ? above : below) : (below + height <= window.innerHeight - 12 ? below : above);
     tip.style.left = `${Math.min(x + 18, window.innerWidth - tip.offsetWidth - 12)}px`;
-    tip.style.top = `${Math.min(y + 18, window.innerHeight - tip.offsetHeight - 12)}px`;
+    tip.style.top = `${Math.max(12, Math.min(top, window.innerHeight - height - 12))}px`;
   },
   hide() {
     tip.classList.remove("shown");
