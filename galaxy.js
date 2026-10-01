@@ -22,6 +22,7 @@ const OUTER_RADIUS = 240;        // where today is
 const ARM_WIDTH = [10, 34];      // width of the arm at the start and at today
 const MAX_PLANETS = 20;          // an artist's most played songs become planets, the rest an asteroid belt
 const PLANET_LABELS = 8;         // how many planets get a name tag (the rest on hover)
+const BELT_COLOR = "#8d8479";    // the asteroid belt's rocks
 const NAMED_STARS = [6, 4];      // how many of your most played artists always have their name shown (on phones)
 const ORBIT_SPEED = 0.5;
 const BREAK_MONTHS = 4;          // this many empty months in a row count as a break in your listening
@@ -454,7 +455,7 @@ async function main() {
     const planetSongs = artist.songs.slice(0, MAX_PLANETS).sort((a, b) => a.first - b.first); // inner = found first
     const maxPlays = Math.max(...planetSongs.map((s) => s.plays));
     const named = new Set(artist.songs.slice(0, PLANET_LABELS));
-    const targets = [], meshes = new Map();
+    const targets = [], meshes = new Map(), colors = new Map(); // song -> its planet, its planet's color
     let orbit = sunRadius * 1.8 + 0.8, previous = 0;
     for (const song of planetSongs) {
       const size = 0.35 + 1.0 * Math.sqrt(song.plays / maxPlays);
@@ -483,6 +484,7 @@ async function main() {
       planets.push({ pivot, speed: ORBIT_SPEED / Math.pow(orbit, 0.9) });
       targets.push(planet);
       meshes.set(song, planet);
+      colors.set(song, `#${color.getHexString()}`);
       const tag = label([song.name], "name planet");
       tag.position.set(0, size + 0.35, 0);
       tag.visible = named.has(song) && namesOn;
@@ -498,7 +500,7 @@ async function main() {
       const beltRadius = orbit + previous + 2;
       const belt = new THREE.InstancedMesh(
         new THREE.IcosahedronGeometry(1, 0),
-        new THREE.MeshStandardMaterial({ color: "#8d8479", roughness: 1, flatShading: true }),
+        new THREE.MeshStandardMaterial({ color: BELT_COLOR, roughness: 1, flatShading: true }),
         beltSongs.length,
       );
       const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
@@ -525,7 +527,7 @@ async function main() {
       const angle = (i / 32) * Math.PI * 2;
       return { p: new THREE.Vector3(Math.cos(angle) * extent, 0, Math.sin(angle) * extent).applyMatrix4(orbits.matrixWorld) };
     });
-    return { info, group, sun, targets, meshes, byRank, extent, ring, era: makeEra(info) };
+    return { info, group, sun, targets, meshes, colors, byRank, extent, ring, era: makeEra(info) };
   }
 
   function closeSystem() {
@@ -749,6 +751,7 @@ async function main() {
       color: `#${info.color.getHexString()}`,
       ago: daysAgo,
       rank: info.index + 1, // stars come most listened first
+      colorOf: (song) => system.colors.get(song) ?? BELT_COLOR,
       timeline,
       onClose: goHome,
       onSongEnter: (song) => highlightSong(song, true),

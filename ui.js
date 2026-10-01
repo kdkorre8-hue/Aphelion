@@ -380,7 +380,32 @@ function artistFacts(artist, data) {
   return facts;
 }
 
-export function openPanel(artist, data, { color, ago, rank, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
+// A song in the list: a small planet in its planet's color (its album art, ringed in that color, when there is
+// one), its name over a bar for its share of the artist's plays, and its plays
+function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onSongClick }) {
+  const item = el("li");
+  item.style.setProperty("--planet", colorOf(song));
+  const art = el("span", "song-art");
+  if (song.image) {
+    const img = el("img");
+    img.src = song.image;
+    img.alt = "";
+    img.loading = "lazy";
+    art.append(img);
+  }
+  const text = el("span", "song-text");
+  const bar = el("span", "song-bar");
+  bar.style.width = `${Math.max(2, (song.plays / mostPlays) * 100)}%`;
+  text.append(el("span", "song-name", song.name), bar);
+  item.append(el("span", "song-rank", String(rank)), art, text, el("span", "song-plays", format.compact(song.plays)));
+  item.title = `${song.name} · ${format.count(song.plays, "play")} · click to open in Spotify`;
+  item.onmouseenter = () => onSongEnter(song);
+  item.onmouseleave = () => onSongLeave(song);
+  item.onclick = () => onSongClick(song);
+  return item;
+}
+
+export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
   panel.replaceChildren();
   panel.style.setProperty("--artist", color);
@@ -405,16 +430,22 @@ export function openPanel(artist, data, { color, ago, rank, timeline, onClose, o
   const readout = el("div", "timeline-readout");
   chart.append(canvas, range, readout);
 
+  // The top 10, and the rest on request
   const list = el("ol", "songs");
-  artist.songs.slice(0, 10).forEach((song, i) => {
-    const item = el("li");
-    item.append(el("span", "song-rank", String(i + 1)), el("span", "song-name", song.name), el("span", "song-plays", format.compact(song.plays)));
-    item.title = `${song.name} · ${format.count(song.plays, "play")} · click to open in Spotify`;
-    item.onmouseenter = () => onSongEnter(song);
-    item.onmouseleave = () => onSongLeave(song);
-    item.onclick = () => onSongClick(song);
-    list.append(item);
-  });
+  const handlers = { onSongEnter, onSongLeave, onSongClick };
+  const mostPlays = artist.songs[0]?.plays || 1;
+  const addRows = (from, to) => artist.songs.slice(from, to).forEach((song, i) => list.append(songRow(song, from + i + 1, mostPlays, colorOf, handlers)));
+  addRows(0, 10);
+  let more = null;
+  if (artist.songs.length > 10) {
+    more = el("button", "show-more", artist.songs.length === artist.song_count
+      ? `Show all ${artist.songs.length} songs` : `Show the top ${artist.songs.length} songs`);
+    more.type = "button";
+    more.onclick = () => {
+      addRows(10, artist.songs.length);
+      more.remove();
+    };
+  }
 
   const link = el("a", "spotify-link", "Find on Spotify");
   link.append(icon("external"));
@@ -433,6 +464,7 @@ export function openPanel(artist, data, { color, ago, rank, timeline, onClose, o
     chart,
     el("div", "section-title", "Top songs"),
     list,
+    ...(more ? [more] : []),
     link,
   );
   panel.hidden = false;
