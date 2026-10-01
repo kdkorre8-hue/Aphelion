@@ -134,6 +134,7 @@ async function main() {
     return;
   }
   ui.setupHeader(data);
+  ui.setupLegend(HEAT);
 
   // Time -> place on the spiral arm
   const timeline = buildTimeline(data);

@@ -42,8 +42,7 @@
       --fs-small: 13px;
       --fs-caption: 12px;
       --fs-micro: 11px;
-      /* last-played colors, matching HEAT in galaxy.js (stops placed on the same log scale) */
-      --heat: linear-gradient(90deg, #72d0ff 0%, #8fa8ff 41%, #c49bff 60%, #ff9fc6 75%, #ffb778 88%, #e0775a 100%);
+      --heat: transparent; /* last-played colors, drawn from HEAT in galaxy.js so the two always match */
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
@@ -77,10 +76,11 @@
     #legend { left: 20px; bottom: 20px; padding: 14px 16px; width: 290px; font-size: var(--fs-caption); color: var(--muted); }
     .legend-title, .section-title, .eyebrow { font: var(--type-eyebrow); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
     .heat-bar { height: 6px; border-radius: 3px; margin: 9px 0 5px; background: var(--heat); }
-    .heat-ticks { position: relative; height: 14px; font-size: var(--fs-micro); }
-    .heat-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+    .heat-ticks { position: relative; height: 16px; font-size: var(--fs-micro); }
+    .heat-ticks span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
+    .heat-ticks span::before { content: ""; position: absolute; left: 50%; top: -6px; width: 1px; height: 4px; background: rgba(233, 235, 245, 0.35); }
     .heat-ticks span:first-child { transform: none; }
-    .heat-ticks span:last-child { transform: translateX(-100%); }
+    .heat-ticks span:first-child::before { left: 0; }
     .keys { list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
     .keys li { display: flex; align-items: center; gap: 9px; }
     .key { width: 14px; height: 14px; flex: none; display: grid; place-items: center; }
@@ -200,11 +200,11 @@
   <section id="legend" class="glass" aria-label="How to read the galaxy">
     <div class="legend-title">Last played</div>
     <div class="heat-bar"></div>
-    <div class="heat-ticks"><span style="left: 0">now</span><span style="left: 79%">1 yr</span><span style="left: 100%">5+ yrs</span></div>
+    <div id="heat-ticks" class="heat-ticks"></div>
     <ul class="keys">
       <li><span class="key key-star"></span>An artist · bigger = more time listened</li>
       <li><span class="key key-dust"></span>Dust · artists you played less</li>
-      <li><span class="key key-spiral"></span>Spiral · first play in the middle, today at the tip</li>
+      <li><span class="key key-spiral"></span>Spiral · center = first play, tip = today</li>
     </ul>
   </section>
 
