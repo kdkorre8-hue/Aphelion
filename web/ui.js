@@ -137,8 +137,9 @@ export function setNamesButton(on) {
   document.querySelector("#controls .names-button").setAttribute("aria-pressed", String(on));
 }
 
-// The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale)
-export function setupLegend(heat) {
+// The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale).
+// The legend folds away into a "How to read" pill; whether it's open is remembered.
+export function setupLegend(heat, open) {
   const longest = heat.at(-1)[0];
   const at = (days) => `${((Math.log1p(days) / Math.log1p(longest)) * 100).toFixed(1)}%`;
   document.documentElement.style.setProperty("--heat", `linear-gradient(90deg, ${heat.map(([days, color]) => `${color} ${at(days)}`).join(", ")})`);
@@ -147,6 +148,21 @@ export function setupLegend(heat) {
     tick.style.left = at(days);
     return tick;
   }));
+  $("legend-toggle").onclick = () => {
+    setLegendOpen($("legend").classList.contains("collapsed"));
+    settings.set("legend", $("legend").classList.contains("collapsed") ? "closed" : "open");
+  };
+  setLegendOpen(open);
+}
+
+function setLegendOpen(open) {
+  $("legend").classList.toggle("collapsed", !open);
+  $("legend-body").hidden = !open;
+  const toggle = $("legend-toggle");
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.title = open ? "Fold the legend away" : "";
+  toggle.setAttribute("aria-label", open ? "Fold the legend away" : "How to read");
+  toggle.replaceChildren(...(open ? [icon("down")] : [icon("info"), "How to read"]));
 }
 
 // The "how to move around" hint fades once you've started exploring
