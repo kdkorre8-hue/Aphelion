@@ -84,6 +84,7 @@
     #controls button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 9px; background: none;
       color: var(--muted); cursor: pointer; }
     #controls button:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+    #controls button[aria-pressed="true"] { color: var(--text); background: rgba(255, 255, 255, 0.1); }
     #controls .rule { height: 1px; margin: 2px 7px; background: var(--line); }
     body.visiting #controls { right: 380px; } /* left of the artist panel */
 
