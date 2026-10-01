@@ -584,6 +584,20 @@ async function main() {
     controls.maxDistance = Math.max(OUTER_RADIUS * 5, home.distance * 1.5);
   }
 
+  // When the window changes size, the view you were flown to keeps fitting, unless you've moved the camera since
+  let userMoved = false;
+  controls.addEventListener("start", () => { userMoved = true; });
+  function reframe() {
+    insets = measureInsets(!!system);
+    frameHome();
+    if (userMoved) return;
+    const target = system ? system.info.position : home.target;
+    const dir = flight ? flight.dir : camera.position.clone().sub(controls.target).normalize();
+    const distance = system ? fitDistance(system.ring, target, dir, insets) : home.distance;
+    if (flight) flight.distance = distance;
+    else camera.position.copy(target).addScaledVector(dir, distance);
+  }
+
   function flyTo(target, distance, dir = niceDirection(), seconds = 1.6) {
     flight = { t: 0, seconds, target: target.clone(), distance, dir, fromTarget: controls.target.clone(), fromCamera: camera.position.clone() };
     controls.enabled = false;
@@ -597,12 +611,14 @@ async function main() {
     const dir = flight ? flight.dir.clone() : camera.position.clone().sub(target).normalize();
     const from = flight ? flight.distance : camera.position.distanceTo(target);
     flyTo(target, THREE.MathUtils.clamp(from * factor, controls.minDistance, controls.maxDistance), dir, 0.45);
+    userMoved = true;
   }
 
   // Back to the overview: leave the star you're visiting, or undo your own orbiting and zooming
   function showWholeGalaxy() {
-    if (system) goHome();
-    else flyTo(home.target, home.distance, home.dir);
+    if (system) return goHome();
+    userMoved = false;
+    flyTo(home.target, home.distance, home.dir);
   }
 
   function toggleFullscreen() {
@@ -626,6 +642,7 @@ async function main() {
     });
     insets = measureInsets(true); // with the panel open
     const dir = niceDirection();
+    userMoved = false;
     flyTo(info.position, fitDistance(system.ring, info.position, dir, insets), dir);
   }
 
@@ -636,6 +653,7 @@ async function main() {
     ui.hideCrumb();
     ui.closePanel();
     insets = measureInsets(false);
+    userMoved = false;
     flyTo(home.target, home.distance, home.dir);
   }
 
@@ -755,6 +773,7 @@ async function main() {
     flyTo(home.target, home.distance, home.dir, 3.2);
   }
   ui.setupHint(renderer.domElement);
+  window.addEventListener("resize", reframe);
 
   // Shift the picture so what you look at sits in the middle of the free part of the window
   const viewShift = { x: 0, y: 0 };
@@ -798,8 +817,7 @@ async function main() {
     labelRenderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
-      frameHome(); // again, now that the labels have been drawn and have their real size
-      if (flight) flight.distance = home.distance;
+      reframe(); // now that the labels have been drawn and have their real size
       ui.doneLoading();
     }
   });
