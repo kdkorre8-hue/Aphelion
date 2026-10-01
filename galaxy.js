@@ -180,7 +180,9 @@ async function main() {
 
   const stars = starMaterial(), soft = softMaterial();
   const clouds = cloudMaterial(cloudTexture(seededRandom("cloud")));
-  const pointMaterials = [stars, soft, clouds];
+  const sunGlow = softMaterial(); // the glow around a visited star's sun
+  sunGlow.uniforms.nearFade.value = 0; // it's meant to be big
+  const pointMaterials = [stars, soft, clouds, sunGlow];
 
   // Deep space all around. Its noise shader is expensive and never changes, so it's drawn once
   // into a cube map here instead of for every pixel on every frame.
@@ -447,6 +449,15 @@ async function main() {
     const sunRadius = 0.9 + 2.6 * info.weight;
     const sun = new THREE.Mesh(new THREE.SphereGeometry(sunRadius, 64, 32), sunMaterial(info.color.clone()));
     group.add(sun);
+    // A glow around the sun, a bright one and a wide halo, so the star you clicked visibly turns into it.
+    // Right at the star's own position, which the clearing around it leaves alone.
+    const glowColor = info.color.clone().multiplyScalar(info.shine);
+    const glow = makePoints({
+      positions: [...info.position.toArray(), ...info.position.toArray()],
+      tints: [...glowColor.clone().multiplyScalar(0.9).toArray(), ...glowColor.clone().multiplyScalar(0.28).toArray()],
+      sizes: [sunRadius * 7, sunRadius * 22],
+    }, sunGlow);
+    scene.add(glow);
 
     const orbits = new THREE.Group();
     orbits.rotation.x = (rand() - 0.5) * 0.3;
@@ -463,11 +474,15 @@ async function main() {
       // need 1.6x their radii apart or they seem to crash into each other when one overtakes the other
       orbit += 1.7 * (previous + size) + 0.4;
       previous = size;
-      const ring = new THREE.EllipseCurve(0, 0, orbit, orbit).getPoints(160).map((p) => new THREE.Vector3(p.x, 0, p.y));
-      orbits.add(new THREE.LineLoop(
-        new THREE.BufferGeometry().setFromPoints(ring),
-        new THREE.LineBasicMaterial({ color: info.color, transparent: true, opacity: 0.07, depthWrite: false }),
-      ));
+      // its orbit: fainter the less you played the song, so 20 rings don't all shout at once
+      const path = new THREE.EllipseCurve(0, 0, orbit, orbit).getPoints(160).map((p) => new THREE.Vector3(p.x, 0, p.y));
+      const orbitOpacity = 0.03 + 0.09 * Math.sqrt(song.plays / maxPlays);
+      const orbitLine = new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(path),
+        new THREE.LineBasicMaterial({ color: info.color, transparent: true, opacity: orbitOpacity, depthWrite: false }),
+      );
+      orbitLine.userData.opacity = orbitOpacity;
+      orbits.add(orbitLine);
       const pivot = new THREE.Object3D();
       pivot.rotation.y = rand() * Math.PI * 2;
       orbits.add(pivot);
@@ -491,6 +506,7 @@ async function main() {
       planet.add(tag);
       planet.userData.tag = tag;
       planet.userData.named = named.has(song);
+      planet.userData.orbit = orbitLine;
     }
 
     // Songs you played less: an asteroid belt
@@ -498,9 +514,11 @@ async function main() {
     const beltSongs = artist.songs.slice(MAX_PLANETS);
     if (beltSongs.length) {
       const beltRadius = orbit + previous + 2;
+      const beltColor = info.color.clone().lerp(new THREE.Color(BELT_COLOR), 0.55); // rock, with a hint of its star
       const belt = new THREE.InstancedMesh(
         new THREE.IcosahedronGeometry(1, 0),
-        new THREE.MeshStandardMaterial({ color: BELT_COLOR, roughness: 1, flatShading: true }),
+        // a faint glow of their own, or the rocks on the far side of the sun disappear
+        new THREE.MeshStandardMaterial({ color: beltColor, emissive: beltColor, emissiveIntensity: 0.3, roughness: 1, flatShading: true }),
         beltSongs.length,
       );
       const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
@@ -509,9 +527,10 @@ async function main() {
         const r = beltRadius + (rand() - 0.5) * 1.6;
         p.set(Math.cos(angle) * r, (rand() - 0.5) * 0.5, Math.sin(angle) * r);
         q.setFromEuler(new THREE.Euler(rand() * 6, rand() * 6, rand() * 6));
-        const size = 0.12 + 0.05 * Math.sqrt(song.plays);
+        const size = 0.3 + 0.1 * Math.sqrt(song.plays); // big enough to see from where the system fits the view
         s.set(size * (0.8 + rand() * 0.5), size * (0.6 + rand() * 0.4), size);
         belt.setMatrixAt(i, m.compose(p, q, s));
+        colors.set(song, `#${beltColor.getHexString()}`);
       });
       belt.userData = { kind: "belt", songs: beltSongs, artist };
       orbits.add(belt);
@@ -527,14 +546,15 @@ async function main() {
       const angle = (i / 32) * Math.PI * 2;
       return { p: new THREE.Vector3(Math.cos(angle) * extent, 0, Math.sin(angle) * extent).applyMatrix4(orbits.matrixWorld) };
     });
-    return { info, group, sun, targets, meshes, colors, byRank, extent, ring, era: makeEra(info) };
+    return { info, group, sun, glow, targets, meshes, colors, byRank, extent, ring, era: makeEra(info) };
   }
 
   function closeSystem() {
     if (!system) return;
-    scene.remove(system.group, system.era);
+    scene.remove(system.group, system.era, system.glow);
     dispose(system.group);
-    system.era.geometry.dispose(); // its material is shared, so keep that
+    system.era.geometry.dispose(); // their material is shared, so keep that
+    system.glow.geometry.dispose();
     planets.length = 0;
     system = null;
     selected = null;
@@ -545,6 +565,8 @@ async function main() {
     const planet = system?.meshes.get(song);
     if (!planet || (!on && song === selected)) return;
     planet.scale.setScalar(on ? 1.25 : 1);
+    const { orbit } = planet.userData;
+    orbit.material.opacity = on ? 0.35 : orbit.userData.opacity;
     planet.userData.tag.visible = on || (planet.userData.named && namesOn);
     planet.userData.tag.element.classList.toggle("lit", on);
   }
