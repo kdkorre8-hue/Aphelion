@@ -514,9 +514,11 @@ async function main() {
     const beltSongs = artist.songs.slice(MAX_PLANETS);
     if (beltSongs.length) {
       const beltRadius = orbit + previous + 2;
+      const beltColor = info.color.clone().lerp(new THREE.Color(BELT_COLOR), 0.55); // rock, with a hint of its star
       const belt = new THREE.InstancedMesh(
         new THREE.IcosahedronGeometry(1, 0),
-        new THREE.MeshStandardMaterial({ color: BELT_COLOR, roughness: 1, flatShading: true }),
+        // a faint glow of their own, or the rocks on the far side of the sun disappear
+        new THREE.MeshStandardMaterial({ color: beltColor, emissive: beltColor, emissiveIntensity: 0.3, roughness: 1, flatShading: true }),
         beltSongs.length,
       );
       const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
@@ -525,9 +527,10 @@ async function main() {
         const r = beltRadius + (rand() - 0.5) * 1.6;
         p.set(Math.cos(angle) * r, (rand() - 0.5) * 0.5, Math.sin(angle) * r);
         q.setFromEuler(new THREE.Euler(rand() * 6, rand() * 6, rand() * 6));
-        const size = 0.12 + 0.05 * Math.sqrt(song.plays);
+        const size = 0.3 + 0.1 * Math.sqrt(song.plays); // big enough to see from where the system fits the view
         s.set(size * (0.8 + rand() * 0.5), size * (0.6 + rand() * 0.4), size);
         belt.setMatrixAt(i, m.compose(p, q, s));
+        colors.set(song, `#${beltColor.getHexString()}`);
       });
       belt.userData = { kind: "belt", songs: beltSongs, artist };
       orbits.add(belt);
