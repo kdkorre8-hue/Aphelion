@@ -98,6 +98,18 @@ export function setupHeader(data) {
   $("preview").hidden = data.mode !== "preview";
 }
 
+// The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale)
+export function setupLegend(heat) {
+  const longest = heat.at(-1)[0];
+  const at = (days) => `${((Math.log1p(days) / Math.log1p(longest)) * 100).toFixed(1)}%`;
+  document.documentElement.style.setProperty("--heat", `linear-gradient(90deg, ${heat.map(([days, color]) => `${color} ${at(days)}`).join(", ")})`);
+  $("heat-ticks").replaceChildren(...[[0, "now"], [7, "1 wk"], [30, "1 mo"], [365, "1 yr"]].map(([days, text]) => {
+    const tick = el("span", "", text);
+    tick.style.left = at(days);
+    return tick;
+  }));
+}
+
 // The "how to move around" hint fades once you've started exploring
 export function setupHint(canvas) {
   const hint = $("hint");
