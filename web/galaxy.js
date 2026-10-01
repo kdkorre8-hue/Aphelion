@@ -272,10 +272,11 @@ async function main() {
     const rand = seededRandom(artist.name);
     const side = (rand() * 2 - 1) * 0.85;
     const height = (rand() - 0.5) * 3;
-    const position = onArm(frac(artist.peak + (rand() - 0.5) * 20 * DAY), side, height); // somewhere in the peak month
+    const f = frac(artist.peak + (rand() - 0.5) * 20 * DAY); // somewhere in the peak month
+    const position = onArm(f, side, height);
     const weight = Math.sqrt(artist.hours / maxHours);
     return {
-      kind: "star", index, artist, side, height, position, weight,
+      kind: "star", index, artist, f, side, height, position, weight,
       color: heatColor(daysAgo(artist.last)),
       shine: brightness(daysAgo(artist.last)),
       size: 10 + 28 * weight,
@@ -786,7 +787,7 @@ async function main() {
     else document.documentElement.requestFullscreen().catch(() => {});
   }
 
-  function visit(info) {
+  function visit(info, { seconds = 1.6 } = {}) {
     closeSystem();
     system = openSystem(info);
     openClearing(info.position, system.extent + 6);
@@ -806,11 +807,23 @@ async function main() {
       onSongEnter: (song) => highlightSong(song, true),
       onSongLeave: (song) => highlightSong(song, false),
       onSongClick: selectSong,
+      steps: [-1, 1].map((direction) => {
+        const other = alongArm[alongArm.indexOf(info) + direction];
+        return other && { name: other.artist.name, go: () => step(direction) };
+      }),
     });
     insets = measureInsets(true); // with the panel open
     const dir = niceDirection();
     userMoved = false;
-    flyTo(info.position, fitDistance(system.ring, info.position, dir, insets), dir);
+    flyTo(info.position, fitDistance(system.ring, info.position, dir, insets), dir, seconds);
+  }
+
+  // The stars in the order of your timeline, from your first plays to today: the one before and after the
+  // star you're visiting are a step away (the arrow keys, or the buttons at the bottom of the panel)
+  const alongArm = [...starInfo].sort((a, b) => a.f - b.f);
+  function step(direction) {
+    const next = system && alongArm[alongArm.indexOf(system.info) + direction];
+    if (next) visit(next, { seconds: 1.2 });
   }
 
   function leaveSystem() {
@@ -890,6 +903,8 @@ async function main() {
     "+": () => zoom(0.7), "=": () => zoom(0.7),
     "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
     n: toggleNames,
+    ArrowLeft: () => step(-1),
+    ArrowRight: () => step(1),
     f: toggleFullscreen,
   };
   window.addEventListener("keydown", (e) => {
