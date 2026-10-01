@@ -244,6 +244,7 @@ async function main() {
 
   // Dust: artists you played less, at the month you played them most
   const dustPositions = [];
+  let dustPoints;
   {
     const maxPlays = Math.max(1, ...data.dust.map((a) => a.plays));
     const dust = { positions: [], tints: [], sizes: [], seeds: [] };
@@ -257,7 +258,8 @@ async function main() {
       dust.sizes.push(2.2 + 3.5 * Math.sqrt(artist.plays / maxPlays));
       dust.seeds.push(rand());
     }
-    scene.add(makePoints(dust, stars));
+    dustPoints = makePoints(dust, stars);
+    scene.add(dustPoints);
   }
 
   // Stars: one per artist you've really listened to
@@ -288,6 +290,24 @@ async function main() {
   function setStarSize(info, factor) {
     starPoints.geometry.attributes.size.array[info.index] = info.size * factor;
     starPoints.geometry.attributes.size.needsUpdate = true;
+  }
+
+  // Bring some stars and dust forward by dimming the rest: the star you point at, and so on. starWeight and
+  // dustWeight say how much each one stays lit (0-1); the dimming fades in, and out again with no weights.
+  let focusWanted = 0;
+  function setEmphasis(starWeight, dustWeight = () => 0) {
+    const write = (points, items, weight) => {
+      const { emphasis } = points.geometry.attributes;
+      items.forEach((item, i) => { emphasis.array[i] = weight(item); });
+      emphasis.needsUpdate = true;
+    };
+    if (starWeight) {
+      write(starPoints, starInfo, starWeight);
+      write(dustPoints, data.dust, dustWeight);
+      for (const info of starInfo) info.name.element.classList.toggle("dimmed", starWeight(info) < 0.5);
+    }
+    focusWanted = starWeight ? 1 : 0;
+    document.body.classList.toggle("focused", !!starWeight);
   }
 
   // Listening pulses: a soft dot for every month you played an artist, along their lane in the arm
@@ -803,6 +823,7 @@ async function main() {
     if (hovered?.kind === "star") {
       setStarSize(hovered, 1);
       hovered.name.element.classList.remove("lit");
+      if (!system) setEmphasis(null);
     }
     if (hovered?.planet) highlightSong(hovered.song, false);
     if (hoverPulses) { scene.remove(hoverPulses); hoverPulses.geometry.dispose(); hoverPulses = null; }
@@ -815,6 +836,7 @@ async function main() {
     if (item.kind === "star") {
       setStarSize(item, 1.35);
       item.name.element.classList.add("lit");
+      if (!system) setEmphasis((info) => (info === item ? 1 : 0)); // the rest of the galaxy steps back
       if (system?.info !== item) hoverPulses = makePulses(item);
     }
     if (item.planet) highlightSong(item.song, true);
@@ -845,7 +867,8 @@ async function main() {
 
   // ---------- animation ----------
 
-  window.heavyRotation = { scene, camera, controls, starInfo, isFlying: () => !!flight, visit, goHome }; // handy in the browser console
+  // handy in the browser console, and for timing frames (composer.render)
+  window.heavyRotation = { scene, camera, controls, renderer, composer, starInfo, isFlying: () => !!flight, visit, goHome };
 
   // Arrive from far away
   frameHome();
@@ -879,6 +902,7 @@ async function main() {
     for (const p of planets) p.pivot.rotation.y += p.speed * dt;
     const fade = calm ? 1 : Math.min(1, dt * 3);
     for (const c of clearings) c.zone.w += (c.target - c.zone.w) * fade;
+    stars.uniforms.focus.value += (focusWanted - stars.uniforms.focus.value) * (calm ? 1 : Math.min(1, dt * 8));
     armLine.material.opacity += ((system ? 0 : ARM_LINE_OPACITY) - armLine.material.opacity) * fade; // it would cut through the system
     if (system) system.sun.material.uniforms.time.value = now / 1000;
 
