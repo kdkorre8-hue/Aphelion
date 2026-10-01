@@ -169,6 +169,7 @@
     .label.star { color: rgba(232, 236, 250, 0.78); transition: color 0.2s, opacity 0.3s; }
     .label.star.major { font: 600 var(--fs-small)/1.2 var(--body); color: rgba(240, 243, 255, 0.92); } /* your top three */
     .label.star.lit { color: #fff; }
+    body.focused .label.star.dimmed:not(.crowded) { opacity: 0.35; } /* with their stars, while others are in focus */
     .label.planet { font-size: var(--fs-micro); transition: color 0.2s, opacity 0.3s; }
     .label.planet.lit { color: #fff; font-weight: 600; }
 
