@@ -17,6 +17,7 @@ import {
 import * as ui from "./ui.js";
 import { setupSearch } from "./search.js";
 import { setupScrubber } from "./scrubber.js";
+import { FORMATS, composePoster, setupShare } from "./poster.js";
 
 const TURNS = 2;                 // how many times the timeline winds around the center
 const INNER_RADIUS = 20;         // where your first play is
@@ -745,13 +746,14 @@ async function main() {
   let insets = measureInsets(false);
 
   // How far from target, looking along dir, the camera has to be for every point to show inside the free
-  // part of the window, with a margin, plus half its size in pixels for a label
+  // part of the window (or of view: a picture of another size), with a margin, plus half its size in pixels
+  // for a label
   const fitter = new THREE.PerspectiveCamera(camera.fov, 1, camera.near, camera.far);
   const fitAt = new THREE.Vector3();
-  function fitDistance(points, target, dir, free, margin = 20) {
-    const width = window.innerWidth - free.left - free.right, height = window.innerHeight - free.top - free.bottom;
+  function fitDistance(points, target, dir, free, margin = 20, view = { width: window.innerWidth, height: window.innerHeight }) {
+    const width = view.width - free.left - free.right, height = view.height - free.top - free.bottom;
     // the camera's own lens, cropped to the free part of the window
-    fitter.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (height / window.innerHeight)));
+    fitter.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (height / view.height)));
     fitter.aspect = width / height;
     fitter.updateProjectionMatrix();
     const fits = (distance) => {
@@ -1235,6 +1237,82 @@ async function main() {
     }
   }
   ui.setupStoryButton(startTour);
+
+  // ---------- a poster to share ----------
+
+  // What you're looking at (the whole galaxy, or the star you're visiting) as a picture of the poster's size,
+  // from the direction you're looking, framed to leave room for the poster's words above and below; and where
+  // the names of the five brightest things in it go
+  function renderPicture(width, height) {
+    setHovered(null);
+    const saved = { ratio: renderer.getPixelRatio(), position: camera.position.clone() };
+    const free = { left: 0, right: 0, top: 190, bottom: 600 };
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    const target = system ? system.info.position : home.target;
+    const points = system ? system.ring : [...armEdge, labelPoint(milestones.today), labelPoint(milestones.first)];
+    const distance = fitDistance(points, target, dir, free, 30, { width, height });
+
+    renderer.setPixelRatio(1);
+    renderer.setSize(width, height, false);
+    composer.setPixelRatio(1);
+    composer.setSize(width, height);
+    camera.aspect = width / height;
+    camera.setViewOffset(width, height, 0, (free.bottom - free.top) / 2, width, height);
+    camera.position.copy(target).addScaledVector(dir, distance);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    const scale = height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    for (const m of pointMaterials) m.uniforms.scale.value = scale;
+    composer.render();
+    const picture = document.createElement("canvas"); // copied right away, before the browser clears the frame
+    picture.width = width;
+    picture.height = height;
+    picture.getContext("2d").drawImage(renderer.domElement, 0, 0);
+    const named = system
+      ? system.byRank.slice(0, 5).map((planet) => [planet.getWorldPosition(new THREE.Vector3()), planet.userData.song.name])
+      : starInfo.slice(0, 5).map((info) => [info.position, info.artist.name]);
+    const labels = named.map(([p, text]) => {
+      const at = p.clone().project(camera);
+      return { x: ((at.x + 1) / 2) * width, y: ((1 - at.y) / 2) * height + 20, text };
+    });
+
+    renderer.setPixelRatio(saved.ratio);
+    resize(); // the window's sizes again
+    camera.position.copy(saved.position);
+    camera.lookAt(controls.target);
+    return { picture, labels };
+  }
+
+  // The poster's words: your totals and top five artists, or the star's numbers and top five songs
+  function posterCopy() {
+    const artists = data.stars.length + data.dust.length;
+    const eyebrow = `${ui.format.month(data.start)} → today`;
+    if (system) {
+      const { artist, index } = system.info;
+      return {
+        eyebrow, title: artist.name,
+        subtitle: `#${index + 1} of ${artists.toLocaleString("en-US")} artists · ${ui.format.hours(artist.hours)} · ${ui.format.count(artist.plays, "play")}`,
+        listTitle: "Top songs",
+        list: artist.songs.slice(0, 5).map((song) => ({ name: song.name, value: ui.format.count(song.plays, "play"), color: colorOf(song) })),
+      };
+    }
+    return {
+      eyebrow, title: "My listening life",
+      subtitle: `${ui.format.count(artists, "artist")} · ${ui.format.count(data.plays, "play")} · ${ui.format.hours(data.hours)}`,
+      listTitle: "Top artists",
+      list: starInfo.slice(0, 5).map((info) => ({
+        name: info.artist.name, value: ui.format.hours(info.artist.hours), color: `#${heatColor(daysAgo(info.artist.last)).getHexString()}`,
+      })),
+    };
+  }
+
+  setupShare({
+    async make(format) {
+      const { picture, labels } = renderPicture(...FORMATS[format]);
+      return composePoster(picture, labels, posterCopy());
+    },
+    filename: (format) => `aphelion-${system ? system.info.artist.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-") : "galaxy"}-${format}.png`,
+  });
 
   // ---------- search ----------
 
