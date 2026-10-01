@@ -693,9 +693,9 @@ async function main() {
     const hint = document.getElementById("hint").getBoundingClientRect();
     if (hint.height) free.bottom = window.innerHeight - hint.top + 8;
     const panel = document.getElementById("panel");
-    if (visiting && !panel.hidden) {
-      if (phone.matches) free.bottom = panel.offsetHeight + 20; // the sheet sits 12px from the bottom
-      else free.right = panel.offsetWidth + 40; // the panel sits 20px from the edge
+    if (visiting && !panel.hidden) { // (offsetTop and offsetLeft leave out the panel's slide-in)
+      if (phone.matches) free.bottom = window.innerHeight - panel.offsetTop + 8;
+      else free.right = window.innerWidth - panel.offsetLeft + 20;
     }
     return free;
   }
