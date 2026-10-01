@@ -129,6 +129,7 @@
     #panel { top: 72px; right: 20px; bottom: 20px; width: 340px; padding: 22px 22px 18px; overflow-y: auto;
       background: var(--glass-strong); opacity: 0; transform: translateX(16px); transition: opacity 0.35s ease, transform 0.35s ease; }
     #panel.open { opacity: 1; transform: none; }
+    .sheet-handle { display: none; } /* phones only */
     #panel h2 { margin: 6px 0 4px; font: var(--type-title); letter-spacing: -0.01em; overflow-wrap: anywhere; }
     #panel h2::after { content: ""; display: block; width: 36px; height: 3px; border-radius: 2px; margin-top: 12px; background: var(--artist, var(--text)); }
     .panel-sub { margin: 10px 0 18px; color: var(--muted); font-size: var(--fs-small); }
@@ -265,7 +266,10 @@
       #hint { bottom: 160px; } /* above the legend pill and the toolbar */
       #legend { left: 12px; bottom: 12px; width: min(290px, calc(100vw - 24px)); }
       #card { left: 12px !important; right: 12px; top: auto !important; bottom: 12px; max-width: none; } /* docked, not pinned */
-      #panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 52vh; transform: translateY(16px); }
+      #panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; height: 52vh; padding-top: 10px; transform: translateY(16px); }
+      #panel.settling { transition: opacity 0.35s ease, transform 0.35s ease, height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+      .sheet-handle { display: block; width: 36px; height: 4px; margin: 0 auto 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); }
+      .panel-head { touch-action: none; cursor: grab; } /* dragging here moves the sheet, not the page */
       #controls .zoom, body.visiting #controls { display: none; } /* pinch to zoom; the sheet covers the corner */
     }
   </style>

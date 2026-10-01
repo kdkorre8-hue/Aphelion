@@ -202,6 +202,7 @@ export function showCrumb(name, onBack) {
   $("tagline").hidden = true;
   $("back").onclick = onBack;
   document.body.classList.add("visiting");
+  $("hint").classList.add("gone"); // you've found your way around
 }
 
 export function hideCrumb() {
@@ -526,7 +527,57 @@ export function clearSong() {
   for (const row of songRows.values()) row.classList.remove("selected");
 }
 
-export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
+// On phones the panel is a sheet at the bottom of the screen. Drag its top (the handle or the artist's name)
+// to show just the name and numbers, about half the screen, or nearly all of it; a flick goes one step further.
+// Dragging it off the bottom closes it. onChange: the sheet settled at a new height.
+const phoneLayout = window.matchMedia("(max-width: 760px)"); // the same width as the small-screen layout
+phoneLayout.addEventListener("change", () => { $("panel").style.height = ""; });
+
+function setupSheet(panel, grab, peekEnd, { onChange, onClose }) {
+  panel.style.height = "";
+  if (!phoneLayout.matches) return;
+  const stops = () => {
+    const peek = peekEnd.offsetTop + peekEnd.offsetHeight + 18;
+    return [peek, Math.max(peek, window.innerHeight * 0.52), Math.max(peek, window.innerHeight - 96)];
+  };
+  const settle = (height) => {
+    if (Math.abs(height - panel.offsetHeight) < 2) return onChange(); // already there, from the drag itself
+    panel.classList.add("settling");
+    panel.style.height = `${height}px`;
+    panel.addEventListener("transitionend", function settled(e) {
+      if (e.propertyName !== "height") return;
+      panel.removeEventListener("transitionend", settled);
+      panel.classList.remove("settling");
+      onChange();
+    });
+  };
+  let drag = null;
+  grab.onpointerdown = (e) => {
+    drag = { y: e.clientY, height: panel.offsetHeight, last: [e.clientY, e.timeStamp], speed: 0 };
+    grab.setPointerCapture(e.pointerId);
+  };
+  grab.onpointermove = (e) => {
+    if (!drag) return;
+    const [peek, , full] = stops();
+    panel.style.height = `${Math.min(full, Math.max(peek / 2, drag.height + drag.y - e.clientY))}px`;
+    const dt = e.timeStamp - drag.last[1];
+    if (dt > 0) drag.speed = (drag.last[0] - e.clientY) / dt; // pixels per millisecond, upwards
+    drag.last = [e.clientY, e.timeStamp];
+  };
+  grab.onpointerup = grab.onpointercancel = () => {
+    if (!drag) return;
+    const height = panel.offsetHeight, { speed } = drag;
+    drag = null;
+    const heights = stops();
+    if (height < heights[0] - 24 && speed <= 0) return onClose();
+    let target = heights.reduce((a, b) => (Math.abs(b - height) < Math.abs(a - height) ? b : a));
+    if (speed > 0.4) target = heights.find((h) => h > height + 8) ?? heights.at(-1);
+    else if (speed < -0.4) target = heights.findLast((h) => h < height - 8) ?? heights[0];
+    settle(target);
+  };
+}
+
+export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSheet, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
   panel.replaceChildren();
   songRows.clear();
@@ -577,11 +628,20 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
   link.target = "_blank";
   link.rel = "noopener";
 
-  panel.append(
-    close,
+  // the top of the panel, which on phones is also where you drag the sheet
+  const head = el("div", "panel-head");
+  const handle = el("div", "sheet-handle");
+  handle.setAttribute("aria-hidden", "true");
+  head.append(
+    handle,
     el("div", "eyebrow", `Artist · #${rank} of ${(data.stars.length + data.dust.length).toLocaleString("en-US")}`),
     el("h2", "", artist.name),
     el("p", "panel-sub", `Most played in ${format.month(artist.peak)} · last played ${format.ago(ago(artist.last))}`),
+  );
+
+  panel.append(
+    close,
+    head,
     stats,
     artistFacts(artist, data),
     el("div", "section-title", "When you listened"),
@@ -593,6 +653,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
     link,
   );
   panel.hidden = false;
+  setupSheet(panel, head, stats, { onChange: onSheet, onClose });
   requestAnimationFrame(() => {
     panel.classList.add("open");
     drawTimeline(canvas, artist, timeline, color);
