@@ -136,7 +136,7 @@ async function main() {
     return;
   }
   ui.setupHeader(data, showWholeGalaxy);
-  ui.setupLegend(HEAT);
+  ui.setupLegend(HEAT, !phone.matches && ui.settings.get("legend") !== "closed"); // folded on phones, to start with
 
   // Time -> place on the spiral arm
   const timeline = buildTimeline(data);

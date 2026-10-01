@@ -90,6 +90,13 @@
 
     /* legend */
     #legend { left: 20px; bottom: 20px; padding: 14px 16px; width: 290px; font-size: var(--fs-caption); color: var(--muted); }
+    .legend-toggle { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; display: grid; place-items: center;
+      border: 0; border-radius: 50%; background: none; color: var(--faint); cursor: pointer; }
+    .legend-toggle:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+    /* folded away into a "How to read" pill */
+    #legend.collapsed { padding: 0; width: auto; border-radius: 999px; }
+    #legend.collapsed .legend-toggle { position: static; width: auto; height: auto; display: flex; align-items: center; gap: 7px;
+      padding: 8px 14px 8px 11px; border-radius: 999px; color: var(--text); font-size: var(--fs-caption); }
     .legend-title, .section-title, .eyebrow { font: var(--type-eyebrow); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
     .heat-bar { height: 6px; border-radius: 3px; margin: 9px 0 5px; background: var(--heat); }
     .heat-ticks { position: relative; height: 16px; font-size: var(--fs-micro); }
@@ -184,7 +191,7 @@
     @media (prefers-reduced-motion: reduce) {
       .loader .mark, .pulse::after { animation: none; }
     }
-    /* small screens: the totals on their own line, panel as a bottom sheet, no legend or hint */
+    /* small screens: the totals on their own line, panel as a bottom sheet, the legend folded, no hint */
     @media (max-width: 760px) {
       #topbar { flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px 28px; }
       .divider, .tagline { display: none; }
@@ -193,7 +200,8 @@
       .actions { margin-left: auto; }
       body.visiting .wordmark, body.visiting .summary { display: none; }
       #crumb-name { max-width: 52vw; }
-      #legend, #hint { display: none; }
+      #hint, body.visiting #legend { display: none; }
+      #legend { left: 12px; bottom: 12px; width: min(290px, calc(100vw - 24px)); }
       #panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 52vh; transform: translateY(16px); }
       #controls .zoom, body.visiting #controls { display: none; } /* pinch to zoom; the sheet covers the corner */
     }
@@ -227,14 +235,17 @@
   <aside id="panel" class="glass" hidden></aside>
 
   <section id="legend" class="glass" aria-label="How to read the galaxy">
-    <div class="legend-title">Last played</div>
-    <div class="heat-bar"></div>
-    <div id="heat-ticks" class="heat-ticks"></div>
-    <ul class="keys">
-      <li><span class="key key-star"></span>An artist · bigger = more time listened</li>
-      <li><span class="key key-dust"></span>Dust · artists you played less</li>
-      <li><span class="key key-spiral"></span>Spiral · center = first play, tip = today</li>
-    </ul>
+    <button id="legend-toggle" class="legend-toggle" type="button" aria-controls="legend-body"></button>
+    <div id="legend-body">
+      <div class="legend-title">Last played</div>
+      <div class="heat-bar"></div>
+      <div id="heat-ticks" class="heat-ticks"></div>
+      <ul class="keys">
+        <li><span class="key key-star"></span>An artist · bigger = more time listened</li>
+        <li><span class="key key-dust"></span>Dust · artists you played less</li>
+        <li><span class="key key-spiral"></span>Spiral · center = first play, tip = today</li>
+      </ul>
+    </div>
   </section>
 
   <div id="hint"><b>Drag</b> to orbit · <b>scroll</b> to zoom · <b>click a star</b> to fly in</div>
