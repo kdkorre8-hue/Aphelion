@@ -263,6 +263,23 @@
     .card-close:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
     .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
+    /* your story: the caption of each chapter, above the time strip */
+    #story { left: 50%; bottom: calc(108px + var(--safe-bottom)); transform: translateX(-50%); z-index: 12; width: min(460px, calc(100vw - 24px));
+      padding: 16px 18px 14px; border-radius: 16px; background: var(--glass-strong); }
+    .story-progress { display: flex; gap: 4px; margin-bottom: 14px; }
+    .story-progress span { flex: 1; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.15); }
+    .story-progress span.done { background: rgba(255, 255, 255, 0.55); }
+    .story-progress span.now { background: var(--interactive); }
+    #story-text { animation: story-in 0.6s ease; } /* each chapter's words fade in */
+    @keyframes story-in { from { opacity: 0; transform: translateY(6px); } }
+    .story-title { margin: 8px 0 4px; font: var(--type-heading); }
+    .story-meta { margin: 0 0 14px; color: var(--muted); font-size: var(--fs-small); }
+    .story-actions { display: flex; align-items: center; gap: 8px; }
+    .story-end { margin-left: auto; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06); color: var(--muted); cursor: pointer; }
+    .story-end:hover { background: rgba(255, 255, 255, 0.14); color: var(--text); }
+    body.touring #hint { opacity: 0; }
+
     /* the time strip along the bottom of the overview: your listening, month by month */
     #scrubber { left: 50%; bottom: calc(20px + var(--safe-bottom)); transform: translateX(-50%); width: clamp(280px, calc(100vw - 700px), 640px);
       padding: 8px 14px 10px; border-radius: 14px; --delay: 0.38s;
@@ -345,6 +362,7 @@
         transform: none; }
       body.intro #scrubber { transform: translateY(10px); }
       #controls { grid-auto-flow: column; right: calc(12px + var(--safe-right)); bottom: calc(12px + var(--safe-bottom)); }
+      #story { bottom: calc(140px + var(--safe-bottom)); }
       #controls .rule { width: 1px; height: auto; margin: 7px 2px; }
       #legend { left: calc(12px + var(--safe-left)); bottom: calc(12px + var(--safe-bottom)); width: min(290px, calc(100vw - 24px)); }
       #card { left: calc(12px + var(--safe-left)) !important; right: calc(12px + var(--safe-right)); top: auto !important; bottom: calc(12px + var(--safe-bottom)); max-width: none; } /* docked, not pinned */
@@ -400,6 +418,16 @@
         <li><span class="key key-orbits"></span>Orbits · inner = the song you found first</li>
         <li><span class="key key-belt"></span>Asteroid belt · songs you played less</li>
       </ul>
+    </div>
+  </section>
+
+  <section id="story" class="glass" aria-label="Your story" aria-live="polite" hidden>
+    <div id="story-progress" class="story-progress" aria-hidden="true"></div>
+    <div id="story-text"></div>
+    <div class="story-actions">
+      <button id="story-pause" class="button" type="button"></button>
+      <button id="story-skip" class="button" type="button"></button>
+      <button id="story-end" class="story-end" type="button" aria-label="End the story" title="End the story (Esc)"></button>
     </div>
   </section>
 
