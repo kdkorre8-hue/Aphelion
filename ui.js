@@ -307,6 +307,47 @@ export const tooltip = {
   },
 };
 
+// ---------- your story ----------
+
+// The caption of each chapter of the story: where you are in it, its dates, what happened, and buttons to
+// pause, skip ahead or stop. Started from its button in the top bar.
+export function setupStoryButton(onClick) {
+  const button = el("button", "action");
+  button.type = "button";
+  button.title = "Play your story";
+  button.setAttribute("aria-label", "Play your story");
+  button.append(icon("play"), el("span", "action-label", "Your story"));
+  button.onclick = onClick;
+  $("actions").prepend(button);
+  $("story-end").append(icon("close"));
+}
+
+export const story = {
+  // step: { eyebrow, title, meta }; at: [index, count]
+  show(step, [index, count], { paused, onPause, onSkip, onEnd }) {
+    const box = $("story");
+    $("story-progress").replaceChildren(...Array.from({ length: count }, (_, i) => el("span", i < index ? "done" : i === index ? "now" : "")));
+    const text = el("div", "story-text");
+    text.append(el("div", "eyebrow", step.eyebrow), el("h2", "story-title", step.title), el("p", "story-meta", step.meta));
+    $("story-text").replaceWith(text);
+    text.id = "story-text";
+    $("story-pause").onclick = onPause;
+    $("story-skip").onclick = onSkip;
+    $("story-skip").replaceChildren(index === count - 1 ? "Done" : "Next", icon("right"));
+    $("story-end").onclick = onEnd;
+    story.setPaused(paused);
+    box.hidden = false;
+    document.body.classList.add("touring");
+  },
+  setPaused(paused) {
+    $("story-pause").replaceChildren(icon(paused ? "play" : "pause"), paused ? "Play" : "Pause");
+  },
+  hide() {
+    $("story").hidden = true;
+    document.body.classList.remove("touring");
+  },
+};
+
 // ---------- card ----------
 
 // A small card for something you clicked that has no page of its own, like a speck of dust: what it is, and
