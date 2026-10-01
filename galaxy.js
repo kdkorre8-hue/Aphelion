@@ -133,7 +133,7 @@ async function main() {
     ui.showMessage("No plays yet. Run python galaxy.py again after listening to some music.");
     return;
   }
-  ui.setupHeader(data);
+  ui.setupHeader(data, showWholeGalaxy);
   ui.setupLegend(HEAT);
 
   // Time -> place on the spiral arm
@@ -528,6 +528,12 @@ async function main() {
     flight = { t: 0, seconds, target: target.clone(), distance, dir, fromTarget: controls.target.clone(), fromCamera: camera.position.clone() };
     controls.enabled = false;
     controls.autoRotate = false;
+  }
+
+  // Back to the overview: leave the star you're visiting, or undo your own orbiting and zooming
+  function showWholeGalaxy() {
+    if (system) goHome();
+    else flyTo(home.target, home.distance, home.dir);
   }
 
   function visit(info) {
