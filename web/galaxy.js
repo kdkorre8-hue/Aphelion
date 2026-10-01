@@ -30,6 +30,7 @@ const DAY = 86400;
 // Star color by days since you last played the artist: hot blue now, cooling through violet and pink to amber and red
 const HEAT = [[0, "#72d0ff"], [21, "#8fa8ff"], [90, "#c49bff"], [270, "#ff9fc6"], [730, "#ffb778"], [1825, "#e0775a"]];
 const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const phone = window.matchMedia("(max-width: 760px)"); // the same width as the small-screen layout in index.html
 
 // ---------- helpers ----------
 
@@ -308,6 +309,7 @@ async function main() {
   // Time along the arm: years, or every 3 months when you've listened for 2 years or less.
   // Breaks get their own label saying how long they were, plus the month you started listening again.
   const timeLabels = [];
+  const milestones = {}; // the "First play" and "Today" labels
   {
     const short = timeline.activeMonths <= 24;
     const labelled = new Set();
@@ -338,6 +340,7 @@ async function main() {
     dot.className = "pulse";
     const today = label([dot, "Today"], "name milestone today");
     today.position.copy(onArm(1, 0, 5));
+    Object.assign(milestones, { first, today });
     timeLabels.push(first, today);
     scene.add(...timeLabels);
   }
@@ -468,7 +471,13 @@ async function main() {
     }
     sunlight.position.copy(info.position);
     const byRank = targets.filter((t) => t.userData.kind === "song").sort((a, b) => a.userData.rank - b.userData.rank);
-    return { info, group, sun, targets, meshes, byRank, extent, pulses: makePulses(info) };
+    // Points around the outermost orbit, in the tilted plane of the orbits, to fit the whole system into view
+    group.updateMatrixWorld(true);
+    const ring = Array.from({ length: 32 }, (_, i) => {
+      const angle = (i / 32) * Math.PI * 2;
+      return { p: new THREE.Vector3(Math.cos(angle) * extent, 0, Math.sin(angle) * extent).applyMatrix4(orbits.matrixWorld) };
+    });
+    return { info, group, sun, targets, meshes, byRank, extent, ring, pulses: makePulses(info) };
   }
 
   function closeSystem() {
@@ -520,8 +529,60 @@ async function main() {
     return flat.normalize().multiplyScalar(0.75).add(new THREE.Vector3(0, 0.62, 0)).normalize();
   }
 
-  // Narrow (portrait) windows need to step back further to fit the same things in
-  const fit = (distance) => distance * Math.max(1, 1.25 / camera.aspect);
+  // ---------- framing: fit what you look at into the part of the window that's free ----------
+
+  // Free means below the top bar and above the hint at the bottom, and while you visit a star, left of the
+  // artist panel (or above it on phones, where it's a sheet at the bottom)
+  function measureInsets(visiting) {
+    const bar = [...document.getElementById("topbar").children].map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0);
+    const free = { left: 0, top: Math.max(0, ...bar.map((r) => r.bottom)) + 8, right: 0, bottom: 0 };
+    const hint = document.getElementById("hint").getBoundingClientRect();
+    if (hint.height) free.bottom = window.innerHeight - hint.top + 8;
+    const panel = document.getElementById("panel");
+    if (visiting && !panel.hidden) {
+      if (phone.matches) free.bottom = panel.offsetHeight + 20; // the sheet sits 12px from the bottom
+      else free.right = panel.offsetWidth + 40; // the panel sits 20px from the edge
+    }
+    return free;
+  }
+  let insets = measureInsets(false);
+
+  // How far from target, looking along dir, the camera has to be for every point to show inside the free
+  // part of the window, with a margin, plus half its size in pixels for a label
+  const fitter = new THREE.PerspectiveCamera(camera.fov, 1, camera.near, camera.far);
+  const fitAt = new THREE.Vector3();
+  function fitDistance(points, target, dir, free, margin = 20) {
+    const width = window.innerWidth - free.left - free.right, height = window.innerHeight - free.top - free.bottom;
+    // the camera's own lens, cropped to the free part of the window
+    fitter.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (height / window.innerHeight)));
+    fitter.aspect = width / height;
+    fitter.updateProjectionMatrix();
+    const fits = (distance) => {
+      fitter.position.copy(target).addScaledVector(dir, distance);
+      fitter.lookAt(target);
+      fitter.updateMatrixWorld();
+      return points.every(({ p, padX = 0, padY = 0 }) => {
+        fitAt.copy(p).project(fitter);
+        return fitAt.z < 1 && Math.abs(fitAt.x) <= 1 - (2 * (margin + padX)) / width && Math.abs(fitAt.y) <= 1 - (2 * (margin + padY)) / height;
+      });
+    };
+    let near = camera.near, far = controls.maxDistance * 2;
+    for (let i = 0; i < 30; i++) {
+      const middle = (near + far) / 2;
+      if (fits(middle)) far = middle;
+      else near = middle;
+    }
+    return far;
+  }
+
+  // The overview fits the arm out to its time labels, and the "Today" and "First play" labels. On narrow
+  // screens that can be further away than you could zoom out yourself, so the limit moves out with it.
+  const armEdge = Array.from({ length: 97 }, (_, i) => ({ p: onArm(i / 96, 1.35) }));
+  const labelPoint = (l) => ({ p: l.position, padX: (l.element.offsetWidth || 90) / 2, padY: (l.element.offsetHeight || 16) / 2 });
+  function frameHome() {
+    home.distance = fitDistance([...armEdge, labelPoint(milestones.today), labelPoint(milestones.first)], home.target, home.dir, measureInsets(false), 32);
+    controls.maxDistance = Math.max(OUTER_RADIUS * 5, home.distance * 1.5);
+  }
 
   function flyTo(target, distance, dir = niceDirection(), seconds = 1.6) {
     flight = { t: 0, seconds, target: target.clone(), distance, dir, fromTarget: controls.target.clone(), fromCamera: camera.position.clone() };
@@ -541,7 +602,7 @@ async function main() {
   // Back to the overview: leave the star you're visiting, or undo your own orbiting and zooming
   function showWholeGalaxy() {
     if (system) goHome();
-    else flyTo(home.target, fit(home.distance), home.dir);
+    else flyTo(home.target, home.distance, home.dir);
   }
 
   function toggleFullscreen() {
@@ -554,7 +615,6 @@ async function main() {
     system = openSystem(info);
     openClearing(info.position, system.extent + 6);
     for (const l of timeLabels) l.visible = false;
-    flyTo(info.position, fit(system.extent * 1.7 + 4));
     ui.showCrumb(info.artist.name, goHome);
     ui.openPanel(info.artist, data, {
       color: `#${info.color.getHexString()}`,
@@ -564,15 +624,19 @@ async function main() {
       onSongLeave: (song) => highlightSong(song, false),
       onSongClick: (song) => openSong(song.id),
     });
+    insets = measureInsets(true); // with the panel open
+    const dir = niceDirection();
+    flyTo(info.position, fitDistance(system.ring, info.position, dir, insets), dir);
   }
 
   function goHome() {
     closeSystem();
     clearing.target = 0;
     for (const l of timeLabels) l.visible = true;
-    flyTo(home.target, fit(home.distance), home.dir);
     ui.hideCrumb();
     ui.closePanel();
+    insets = measureInsets(false);
+    flyTo(home.target, home.distance, home.dir);
   }
 
   ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onFullscreen: toggleFullscreen });
@@ -683,21 +747,20 @@ async function main() {
   window.heavyRotation = { scene, camera, controls, starInfo, isFlying: () => !!flight, visit, goHome }; // handy in the browser console
 
   // Arrive from far away
+  frameHome();
   if (calm) {
-    camera.position.copy(home.dir).multiplyScalar(fit(home.distance));
+    camera.position.copy(home.dir).multiplyScalar(home.distance);
   } else {
-    camera.position.copy(home.dir).applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.7).multiplyScalar(fit(home.distance) * 2.4);
-    flyTo(home.target, fit(home.distance), home.dir, 3.2);
+    camera.position.copy(home.dir).applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.7).multiplyScalar(home.distance * 2.4);
+    flyTo(home.target, home.distance, home.dir, 3.2);
   }
   ui.setupHint(renderer.domElement);
 
-  // While the artist panel is open, shift the picture so the system sits in the free space:
-  // left of the panel on wide screens, above it on phones (where the panel is a bottom sheet)
+  // Shift the picture so what you look at sits in the middle of the free part of the window
   const viewShift = { x: 0, y: 0 };
   function updateViewShift(dt) {
-    const wide = window.innerWidth > 760;
-    const wantedX = system && wide ? 180 : 0;
-    const wantedY = system && !wide ? window.innerHeight * 0.22 : 0;
+    const wantedX = (insets.right - insets.left) / 2;
+    const wantedY = (insets.bottom - insets.top) / 2;
     const k = Math.min(1, dt * 4);
     viewShift.x += (wantedX - viewShift.x) * k;
     viewShift.y += (wantedY - viewShift.y) * k;
@@ -735,6 +798,8 @@ async function main() {
     labelRenderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
+      frameHome(); // again, now that the labels have been drawn and have their real size
+      if (flight) flight.distance = home.distance;
       ui.doneLoading();
     }
   });
