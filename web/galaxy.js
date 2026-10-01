@@ -798,7 +798,7 @@ async function main() {
 
   ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
   const keys = {
-    Escape: () => (selected ? clearSong() : system && goHome()), // one step back at a time
+    Escape: () => (ui.card.isOpen ? ui.card.hide() : selected ? clearSong() : system && goHome()), // one step back at a time
     h: showWholeGalaxy,
     "+": () => zoom(0.7), "=": () => zoom(0.7),
     "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
@@ -888,13 +888,13 @@ async function main() {
   }
 
   function updateHover() { // once per frame, not on every mouse event
-    const item = pointerAt && !flight ? pick(...pointerAt) : null;
+    const item = pointerAt && !flight && !ui.card.isOpen ? pick(...pointerAt) : null; // no tooltips over an open card
     const key = (i) => i && (i.kind === "song" ? `song-${i.song.id}` : `${i.kind}-${i.artist.name}`);
     if (key(item) !== key(hovered)) setHovered(item);
     if (hovered && pointerAt) ui.tooltip.move(...pointerAt);
   }
 
-  // A click (not a drag) visits a star, selects a song, or plays a dust speck's top song in Spotify
+  // A click (not a drag) visits a star, selects a song, or opens a card for a speck of dust
   let downAt = null;
   renderer.domElement.addEventListener("pointerdown", (e) => { downAt = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener("pointerup", (e) => {
@@ -905,7 +905,12 @@ async function main() {
     setHovered(null);
     if (item.kind === "star" && system?.info !== item) visit(item);
     else if (item.kind === "song") selectSong(item.song);
-    else if (item.kind === "dust") openSong(item.artist.top_song.id);
+    else if (item.kind === "dust") {
+      ui.card.show(item, {
+        x: e.clientX, y: e.clientY, ago: daysAgo,
+        actions: [{ label: "Play the top song", icon: "play", primary: true, external: true, onClick: () => openSong(item.artist.top_song.id) }],
+      });
+    }
   });
 
   // ---------- animation ----------
