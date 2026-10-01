@@ -2,8 +2,8 @@
 // The spiral arm is your listening life: your first play is in the center and today is at the tip.
 // Each artist you've really listened to is one star, placed where you played them the most.
 // Star size = time listened. Color = how recently you played them: blue = still playing, amber/red = left behind.
-// Point at a star to see the months you played them as pulses along the arm. Click it to fly in:
-// its songs become planets. Artists you played less are dust along the arm.
+// Point at a star to see its era along the arm: when you first and last played them, and each month you did.
+// Click it to fly in: its songs become planets. Artists you played less are dust along the arm.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
@@ -310,19 +310,33 @@ async function main() {
     document.body.classList.toggle("focused", !!starWeight);
   }
 
-  // Listening pulses: a soft dot for every month you played an artist, along their lane in the arm
-  function makePulses(info) {
-    const busiest = Math.max(...info.artist.months.map(([, n]) => n));
-    const pulses = { positions: [], tints: [], sizes: [] };
-    for (const [month, n] of info.artist.months) {
+  // An artist's era along their lane in the arm: a faint trail from the first time you played them to the
+  // last, and a pulse for every month you did, bigger the more you played them that month
+  function makeEra(info) {
+    const { artist } = info;
+    const era = { positions: [], tints: [], sizes: [] };
+    const add = (p, color, size) => {
+      era.positions.push(p.x, p.y, p.z);
+      era.tints.push(color.r, color.g, color.b);
+      era.sizes.push(size);
+    };
+    // the trail's dots are spaced evenly along the arm (not in time), so it reads as one even line
+    const from = frac(artist.first), to = frac(artist.last);
+    const trail = info.color.clone().multiplyScalar(0.5 * info.shine);
+    let last = null;
+    for (let i = 0; i <= 4000; i++) {
+      const p = onArm(from + ((to - from) * i) / 4000, info.side, info.height);
+      if (last && p.distanceTo(last) < 2.4) continue;
+      add(p, trail, 3);
+      last = p;
+    }
+    const busiest = Math.max(...artist.months.map(([, n]) => n));
+    for (const [month, n] of artist.months) {
       const strength = Math.sqrt(n / busiest);
       const p = onArm(frac(ui.monthStart(month) + 15 * DAY), info.side, info.height);
-      pulses.positions.push(p.x, p.y, p.z);
-      const c = info.color.clone().multiplyScalar((0.25 + 0.75 * strength) * info.shine);
-      pulses.tints.push(c.r, c.g, c.b);
-      pulses.sizes.push(2 + 5 * strength);
+      add(p, info.color.clone().multiplyScalar((0.6 + 0.9 * strength) * info.shine), 5 + 11 * strength);
     }
-    const points = makePoints(pulses, soft);
+    const points = makePoints(era, soft);
     scene.add(points);
     return points;
   }
@@ -511,14 +525,14 @@ async function main() {
       const angle = (i / 32) * Math.PI * 2;
       return { p: new THREE.Vector3(Math.cos(angle) * extent, 0, Math.sin(angle) * extent).applyMatrix4(orbits.matrixWorld) };
     });
-    return { info, group, sun, targets, meshes, byRank, extent, ring, pulses: makePulses(info) };
+    return { info, group, sun, targets, meshes, byRank, extent, ring, era: makeEra(info) };
   }
 
   function closeSystem() {
     if (!system) return;
-    scene.remove(system.group, system.pulses);
+    scene.remove(system.group, system.era);
     dispose(system.group);
-    system.pulses.geometry.dispose(); // its material is shared, so keep that
+    system.era.geometry.dispose(); // its material is shared, so keep that
     planets.length = 0;
     system = null;
   }
@@ -815,7 +829,7 @@ async function main() {
     return best;
   }
 
-  let hovered = null, hoverPulses = null, pointerAt = null;
+  let hovered = null, hoverEra = null, pointerAt = null;
   renderer.domElement.addEventListener("pointermove", (e) => { pointerAt = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener("pointerleave", () => { pointerAt = null; });
 
@@ -826,7 +840,7 @@ async function main() {
       if (!system) setEmphasis(null);
     }
     if (hovered?.planet) highlightSong(hovered.song, false);
-    if (hoverPulses) { scene.remove(hoverPulses); hoverPulses.geometry.dispose(); hoverPulses = null; }
+    if (hoverEra) { scene.remove(hoverEra); hoverEra.geometry.dispose(); hoverEra = null; }
     hovered = item;
     if (!item) {
       ui.tooltip.hide();
@@ -837,7 +851,7 @@ async function main() {
       setStarSize(item, 1.35);
       item.name.element.classList.add("lit");
       if (!system) setEmphasis((info) => (info === item ? 1 : 0)); // the rest of the galaxy steps back
-      if (system?.info !== item) hoverPulses = makePulses(item);
+      if (system?.info !== item) hoverEra = makeEra(item);
     }
     if (item.planet) highlightSong(item.song, true);
     ui.tooltip.show(item, { ago: daysAgo, visiting: system?.info === item });
