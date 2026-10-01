@@ -79,13 +79,8 @@ def log(message):
         f.write(line + "\n")
 
 
-def fetch_recently_played(token):
-    resp = requests.get(
-        f"{API}/me/player/recently-played",
-        headers={"Authorization": f"Bearer {token}"},
-        params={"limit": 50},
-        timeout=10,
-    )
+def fetch_recently_played(session):
+    resp = session.get(f"{API}/me/player/recently-played", params={"limit": 50}, timeout=10)
     resp.raise_for_status()
     return resp.json()["items"]
 
@@ -133,18 +128,14 @@ def save_plays(db, items):
     return new
 
 
-def fill_genres(db, token):
+def fill_genres(db, session):
     """Looks up genres for artists not looked up yet. Returns (artists looked up, rate limited?)."""
     todo = db.execute(
         "SELECT id, name FROM artists WHERE genres_fetched_at IS NULL LIMIT ?", (MAX_ARTIST_LOOKUPS,)
     ).fetchall()
     done = 0
     for artist_id, name in todo:
-        resp = requests.get(
-            f"{API}/artists/{artist_id}",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
-        )
+        resp = session.get(f"{API}/artists/{artist_id}", timeout=10)
         if resp.status_code == 429:  # too many requests: the rest waits for the next run
             return done, True
         if resp.status_code == 404:  # artist no longer on Spotify
@@ -169,8 +160,9 @@ def fill_genres(db, token):
 
 
 def main():
-    token = get_access_token()
-    items = fetch_recently_played(token)
+    session = requests.Session()  # one connection for every request, instead of reconnecting for each artist
+    session.headers["Authorization"] = f"Bearer {get_access_token()}"
+    items = fetch_recently_played(session)
 
     db = sqlite3.connect(DB_FILE)
     try:
@@ -179,7 +171,7 @@ def main():
             before = db.execute("SELECT COUNT(*) FROM plays").fetchone()[0]
             new = save_plays(db, items)
         with db:  # separate step, so a failed genre lookup never loses the plays above
-            looked_up, rate_limited = fill_genres(db, token)
+            looked_up, rate_limited = fill_genres(db, session)
     finally:
         db.close()
 
