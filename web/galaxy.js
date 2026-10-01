@@ -22,6 +22,7 @@ const OUTER_RADIUS = 240;        // where today is
 const ARM_WIDTH = [10, 34];      // width of the arm at the start and at today
 const MAX_PLANETS = 20;          // an artist's most played songs become planets, the rest an asteroid belt
 const PLANET_LABELS = 8;         // how many planets get a name tag (the rest on hover)
+const NAMED_STARS = [6, 4];      // how many of your most played artists always have their name shown (on phones)
 const ORBIT_SPEED = 0.5;
 const BREAK_MONTHS = 4;          // this many empty months in a row count as a break in your listening
 const BREAK_ROOM = 1.5;          // a whole break takes as much of the arm as 1.5 months you listened
@@ -342,8 +343,21 @@ async function main() {
     today.position.copy(onArm(1, 0, 5));
     Object.assign(milestones, { first, today });
     timeLabels.push(first, today);
+    // most important first, for when they'd cover each other
+    const order = (l) => ["milestone", "gap", "time"].findIndex((c) => l.element.classList.contains(c));
+    timeLabels.sort((a, b) => order(a) - order(b));
     scene.add(...timeLabels);
   }
+
+  // Star names, just below each star. Only some show at a time (see starNames)
+  for (const info of starInfo) {
+    info.name = label([info.artist.name], info.index < 3 ? "name star major" : "name star");
+    info.name.position.copy(info.position);
+    info.name.center.set(0.5, -0.8);
+    scene.add(info.name);
+  }
+  const keyLabels = timeLabels.filter((l) => !l.element.classList.contains("time")); // milestones and breaks
+  const tickLabels = timeLabels.filter((l) => l.element.classList.contains("time"));
 
   // Smooth edges, and one tone-mapping step for everything so glows stay soft. Multisampling is the most
   // expensive part of a frame, and screens with small pixels need less of it (none at 2x, where it costs 5x the frame)
@@ -437,7 +451,7 @@ async function main() {
       meshes.set(song, planet);
       const tag = label([song.name], "name planet");
       tag.position.set(0, size + 0.35, 0);
-      tag.visible = named.has(song);
+      tag.visible = named.has(song) && namesOn;
       planet.add(tag);
       planet.userData.tag = tag;
       planet.userData.named = named.has(song);
@@ -494,26 +508,88 @@ async function main() {
     const planet = system?.meshes.get(song);
     if (!planet) return;
     planet.scale.setScalar(on ? 1.25 : 1);
-    planet.userData.tag.visible = on || planet.userData.named;
+    planet.userData.tag.visible = on || (planet.userData.named && namesOn);
     planet.userData.tag.element.classList.toggle("lit", on);
   }
 
-  // A planet's name fades out while it would cover the name of a more played song (or the one you point at)
-  const tagAt = new THREE.Vector3();
-  function declutterTags() {
+  // A label fades out while it would cover a label that matters more, or stick out of the free part of the
+  // window, and comes back once there's room. Labels come most important first.
+  const labelAt = new THREE.Vector3();
+  function declutter(labels) {
+    const placed = [...chromeBoxes()];
+    const left = insets.left, top = insets.top, right = window.innerWidth - insets.right, bottom = window.innerHeight - insets.bottom;
+    for (const l of labels) {
+      if (!l.visible) continue;
+      // measured once: it doesn't change, and reading it every frame makes the browser lay out the page again
+      l.userData.size ??= l.element.offsetWidth ? [l.element.offsetWidth, l.element.offsetHeight] : undefined; // 0 until drawn once
+      if (!l.userData.size) continue;
+      const [w, h] = l.userData.size;
+      l.getWorldPosition(labelAt).project(camera);
+      const x = ((labelAt.x + 1) / 2) * window.innerWidth - w * l.center.x;
+      const y = ((1 - labelAt.y) / 2) * window.innerHeight - h * l.center.y;
+      const box = [x - 4, y, x + w + 4, y + h];
+      const hidden = box[0] < left || box[2] > right || box[1] < top || box[3] > bottom
+        || placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
+      l.element.classList.toggle("crowded", hidden);
+      if (!hidden) placed.push(box);
+    }
+  }
+  // The legend and the view toolbar sit over the scene, so labels make way for them too. They only move
+  // when the layout changes, so they're measured twice a second rather than every frame.
+  let chrome = [], chromeAt = -Infinity;
+  function chromeBoxes() {
+    if (performance.now() - chromeAt > 500) {
+      chromeAt = performance.now();
+      chrome = ["legend", "controls"].map((id) => document.getElementById(id).getBoundingClientRect())
+        .filter((r) => r.width > 0).map((r) => [r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
+    }
+    return chrome;
+  }
+
+  // Labels first measured in a fallback font are measured again once the real fonts are in
+  document.fonts?.ready.then(() => scene.traverse((o) => { if (o.isCSS2DObject) delete o.userData.size; }));
+
+  // Planet names: the one you point at first, then by how much you played the song
+  const planetTags = () => {
     const lit = (p) => p.userData.tag.element.classList.contains("lit");
-    const tagged = system.byRank.filter((p) => p.userData.tag.visible).sort((a, b) => lit(b) - lit(a)); // otherwise by rank
-    const placed = [];
-    for (const planet of tagged) {
-      const { tag } = planet.userData;
-      const { offsetWidth: w, offsetHeight: h } = tag.element; // 0 until the label renderer has drawn it once
-      if (!w) continue;
-      tag.getWorldPosition(tagAt).project(camera);
-      const x = ((tagAt.x + 1) / 2) * window.innerWidth, y = ((1 - tagAt.y) / 2) * window.innerHeight;
-      const box = [x - w / 2 - 4, y - h / 2, x + w / 2 + 4, y + h / 2];
-      const covered = placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
-      tag.element.classList.toggle("crowded", covered);
-      if (!covered) placed.push(box);
+    return system.byRank.slice().sort((a, b) => lit(b) - lit(a)).map((p) => p.userData.tag);
+  };
+
+  // The overview's labels: the milestones and breaks, the star you point at, the names of your most played
+  // artists, the months or years along the arm, then other stars' names. A star's name shows for your most
+  // played artists and for any star that looks as big as theirs do in the overview, so more names appear
+  // as you come closer. (Pointing at a star whose name isn't shown doesn't add it: the tooltip names it.)
+  let nameSize = Infinity; // in pixels, set with the overview's distance
+  const pixelsPerUnit = () => window.innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  function overviewLabels() {
+    const top = NAMED_STARS[phone.matches ? 1 : 0];
+    const scale = pixelsPerUnit();
+    const lit = [], major = [], minor = [];
+    for (const info of starInfo) {
+      const { name } = info;
+      labelAt.copy(info.position).applyMatrix4(camera.matrixWorldInverse);
+      const pixels = labelAt.z < 0 ? (info.size * scale) / -labelAt.z : 0;
+      if (info.index >= top && pixels < nameSize) name.element.classList.add("crowded");
+      else if (name.element.classList.contains("lit")) lit.push(name);
+      else (info.index < top ? major : minor).push(name);
+    }
+    return [...keyLabels, ...lit, ...major, ...tickLabels, ...minor];
+  }
+  function showOverviewLabels(on) { // hidden while you visit a star
+    for (const l of timeLabels) l.visible = on;
+    for (const info of starInfo) info.name.visible = on && namesOn;
+  }
+
+  // Names on or off (N): star names in the overview and planet names in a system, remembered for next time
+  let namesOn = ui.settings.get("names") !== "off";
+  showOverviewLabels(true);
+  function toggleNames() {
+    namesOn = !namesOn;
+    ui.settings.set("names", namesOn ? "on" : "off");
+    ui.setNamesButton(namesOn);
+    showOverviewLabels(!system);
+    for (const planet of system?.byRank ?? []) {
+      planet.userData.tag.visible = planet.userData.tag.element.classList.contains("lit") || (planet.userData.named && namesOn);
     }
   }
   const openSong = (id) => window.open(`https://open.spotify.com/track/${id}`, "_blank", "noopener");
@@ -582,6 +658,8 @@ async function main() {
   function frameHome() {
     home.distance = fitDistance([...armEdge, labelPoint(milestones.today), labelPoint(milestones.first)], home.target, home.dir, measureInsets(false), 32);
     controls.maxDistance = Math.max(OUTER_RADIUS * 5, home.distance * 1.5);
+    // a little bigger than the last always-named star in the overview, so other names wait until you come closer
+    nameSize = (1.4 * starInfo[Math.min(NAMED_STARS[phone.matches ? 1 : 0], starInfo.length) - 1].size * pixelsPerUnit()) / home.distance;
   }
 
   // When the window changes size, the view you were flown to keeps fitting, unless you've moved the camera since
@@ -630,7 +708,7 @@ async function main() {
     closeSystem();
     system = openSystem(info);
     openClearing(info.position, system.extent + 6);
-    for (const l of timeLabels) l.visible = false;
+    showOverviewLabels(false);
     ui.showCrumb(info.artist.name, goHome);
     ui.openPanel(info.artist, data, {
       color: `#${info.color.getHexString()}`,
@@ -649,7 +727,7 @@ async function main() {
   function goHome() {
     closeSystem();
     clearing.target = 0;
-    for (const l of timeLabels) l.visible = true;
+    showOverviewLabels(true);
     ui.hideCrumb();
     ui.closePanel();
     insets = measureInsets(false);
@@ -657,12 +735,13 @@ async function main() {
     flyTo(home.target, home.distance, home.dir);
   }
 
-  ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onFullscreen: toggleFullscreen });
+  ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
   const keys = {
     Escape: () => system && goHome(),
     h: showWholeGalaxy,
     "+": () => zoom(0.7), "=": () => zoom(0.7),
     "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
+    n: toggleNames,
     f: toggleFullscreen,
   };
   window.addEventListener("keydown", (e) => {
@@ -721,7 +800,10 @@ async function main() {
   renderer.domElement.addEventListener("pointerleave", () => { pointerAt = null; });
 
   function setHovered(item) {
-    if (hovered?.kind === "star") setStarSize(hovered, 1);
+    if (hovered?.kind === "star") {
+      setStarSize(hovered, 1);
+      hovered.name.element.classList.remove("lit");
+    }
     if (hovered?.planet) highlightSong(hovered.song, false);
     if (hoverPulses) { scene.remove(hoverPulses); hoverPulses.geometry.dispose(); hoverPulses = null; }
     hovered = item;
@@ -732,6 +814,7 @@ async function main() {
     }
     if (item.kind === "star") {
       setStarSize(item, 1.35);
+      item.name.element.classList.add("lit");
       if (system?.info !== item) hoverPulses = makePulses(item);
     }
     if (item.planet) highlightSong(item.song, true);
@@ -813,7 +896,7 @@ async function main() {
     controls.update();
     updateHover();
     composer.render();
-    if (system) declutterTags();
+    declutter(system ? planetTags() : overviewLabels());
     labelRenderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
