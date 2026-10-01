@@ -79,6 +79,14 @@
     .actions:empty { display: none; }
     body.visiting .summary, body.visiting .badge { visibility: hidden; }
 
+    /* map controls */
+    #controls { right: 20px; bottom: 20px; display: grid; gap: 2px; padding: 4px; border-radius: 12px; transition: right 0.35s ease; }
+    #controls button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 9px; background: none;
+      color: var(--muted); cursor: pointer; }
+    #controls button:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+    #controls .rule { height: 1px; margin: 2px 7px; background: var(--line); }
+    body.visiting #controls { right: 380px; } /* left of the artist panel */
+
     /* legend */
     #legend { left: 20px; bottom: 20px; padding: 14px 16px; width: 290px; font-size: var(--fs-caption); color: var(--muted); }
     .legend-title, .section-title, .eyebrow { font: var(--type-eyebrow); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
@@ -182,6 +190,7 @@
       #crumb-name { max-width: 52vw; }
       #legend, #hint { display: none; }
       #panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 52vh; transform: translateY(16px); }
+      #controls .zoom, body.visiting #controls { display: none; } /* pinch to zoom; the sheet covers the corner */
     }
   </style>
 </head>
@@ -195,7 +204,7 @@
     </symbol>
   </svg>
   <header id="topbar">
-    <button id="brand" class="brand" type="button" title="The whole galaxy">
+    <button id="brand" class="brand" type="button" title="The whole galaxy (H)">
       <svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span class="wordmark">Aphelion</span>
     </button>
     <span class="divider" aria-hidden="true"></span>
@@ -208,6 +217,7 @@
     <div id="actions" class="actions"></div>
   </header>
 
+  <div id="controls" class="glass" role="toolbar" aria-label="View"></div>
 
   <aside id="panel" class="glass" hidden></aside>
 
