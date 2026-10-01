@@ -1,4 +1,4 @@
-// Heavy Rotation: your listening timeline as a galaxy.
+// Aphelion: your listening timeline as a galaxy.
 // The spiral arm is your listening life: your first play is in the center and today is at the tip.
 // Each artist you've really listened to is one star, placed where you played them the most.
 // Star size = time listened. Color = how recently you played them: blue = still playing, amber/red = left behind.
