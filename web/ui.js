@@ -181,9 +181,14 @@ function showLegend() {
   toggle.replaceChildren(...(open ? [icon("down")] : [icon("info"), "How to read"]));
 }
 
-// The "how to move around" hint fades once you've started exploring
+// The "how to move around" hint, in the words of a touch screen where that's what you have. It fades once
+// you've started exploring.
 export function setupHint(canvas) {
   const hint = $("hint");
+  if (window.matchMedia("(pointer: coarse)").matches) {
+    const b = (text) => el("b", "", text);
+    hint.replaceChildren(b("Tap"), " a star · ", b("drag"), " to orbit · ", b("pinch"), " to zoom");
+  }
   const hide = () => hint.classList.add("gone");
   canvas.addEventListener("pointerdown", hide, { once: true });
   canvas.addEventListener("wheel", hide, { once: true, passive: true });
@@ -197,6 +202,7 @@ export function showCrumb(name, onBack) {
   $("tagline").hidden = true;
   $("back").onclick = onBack;
   document.body.classList.add("visiting");
+  $("hint").classList.add("gone"); // you've found your way around
 }
 
 export function hideCrumb() {
@@ -275,10 +281,12 @@ export const tooltip = {
 // buttons for what you can do with it. Pinned where you clicked (docked at the bottom on phones); Escape, its
 // close button or a click anywhere else closes it.
 const cardBox = $("card");
+let cardItem = null, cardClosedAt = -Infinity;
 
 export const card = {
-  // actions: [{ label, icon, primary, external, onClick }]
+  // actions: [{ label, icon, iconAfter, primary, onClick }]
   show(item, { x, y, ago, actions }) {
+    cardItem = item;
     cardBox.replaceChildren();
     const close = el("button", "card-close");
     close.type = "button";
@@ -290,7 +298,7 @@ export const card = {
     for (const action of actions) {
       const b = el("button", action.primary ? "button primary" : "button");
       b.type = "button";
-      b.append(...(action.icon ? [icon(action.icon)] : []), action.label, ...(action.external ? [icon("external")] : []));
+      b.append(...(action.icon ? [icon(action.icon)] : []), action.label, ...(action.iconAfter ? [icon(action.iconAfter)] : []));
       b.onclick = () => {
         card.hide();
         action.onClick();
@@ -307,10 +315,16 @@ export const card = {
     cardBox.style.top = `${Math.max(12, Math.min(above >= 12 ? above : y + 16, window.innerHeight - height - 12))}px`;
   },
   hide() {
+    if (cardBox.hidden) return;
     cardBox.hidden = true;
+    cardClosedAt = performance.now();
   },
   get isOpen() {
     return !cardBox.hidden;
+  },
+  // Was the card showing this item a moment ago? Then a tap on it was a second tap, closing the card on the way.
+  justShowed(item) {
+    return cardItem === item && performance.now() - cardClosedAt < 800;
   },
 };
 document.addEventListener("pointerdown", (e) => {
@@ -513,7 +527,57 @@ export function clearSong() {
   for (const row of songRows.values()) row.classList.remove("selected");
 }
 
-export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
+// On phones the panel is a sheet at the bottom of the screen. Drag its top (the handle or the artist's name)
+// to show just the name and numbers, about half the screen, or nearly all of it; a flick goes one step further.
+// Dragging it off the bottom closes it. onChange: the sheet settled at a new height.
+const phoneLayout = window.matchMedia("(max-width: 760px)"); // the same width as the small-screen layout
+phoneLayout.addEventListener("change", () => { $("panel").style.height = ""; });
+
+function setupSheet(panel, grab, peekEnd, { onChange, onClose }) {
+  panel.style.height = "";
+  if (!phoneLayout.matches) return;
+  const stops = () => {
+    const peek = peekEnd.offsetTop + peekEnd.offsetHeight + 18;
+    return [peek, Math.max(peek, window.innerHeight * 0.52), Math.max(peek, window.innerHeight - 96)];
+  };
+  const settle = (height) => {
+    if (Math.abs(height - panel.offsetHeight) < 2) return onChange(); // already there, from the drag itself
+    panel.classList.add("settling");
+    panel.style.height = `${height}px`;
+    panel.addEventListener("transitionend", function settled(e) {
+      if (e.propertyName !== "height") return;
+      panel.removeEventListener("transitionend", settled);
+      panel.classList.remove("settling");
+      onChange();
+    });
+  };
+  let drag = null;
+  grab.onpointerdown = (e) => {
+    drag = { y: e.clientY, height: panel.offsetHeight, last: [e.clientY, e.timeStamp], speed: 0 };
+    grab.setPointerCapture(e.pointerId);
+  };
+  grab.onpointermove = (e) => {
+    if (!drag) return;
+    const [peek, , full] = stops();
+    panel.style.height = `${Math.min(full, Math.max(peek / 2, drag.height + drag.y - e.clientY))}px`;
+    const dt = e.timeStamp - drag.last[1];
+    if (dt > 0) drag.speed = (drag.last[0] - e.clientY) / dt; // pixels per millisecond, upwards
+    drag.last = [e.clientY, e.timeStamp];
+  };
+  grab.onpointerup = grab.onpointercancel = () => {
+    if (!drag) return;
+    const height = panel.offsetHeight, { speed } = drag;
+    drag = null;
+    const heights = stops();
+    if (height < heights[0] - 24 && speed <= 0) return onClose();
+    let target = heights.reduce((a, b) => (Math.abs(b - height) < Math.abs(a - height) ? b : a));
+    if (speed > 0.4) target = heights.find((h) => h > height + 8) ?? heights.at(-1);
+    else if (speed < -0.4) target = heights.findLast((h) => h < height - 8) ?? heights[0];
+    settle(target);
+  };
+}
+
+export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSheet, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
   panel.replaceChildren();
   songRows.clear();
@@ -564,11 +628,20 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
   link.target = "_blank";
   link.rel = "noopener";
 
-  panel.append(
-    close,
+  // the top of the panel, which on phones is also where you drag the sheet
+  const head = el("div", "panel-head");
+  const handle = el("div", "sheet-handle");
+  handle.setAttribute("aria-hidden", "true");
+  head.append(
+    handle,
     el("div", "eyebrow", `Artist · #${rank} of ${(data.stars.length + data.dust.length).toLocaleString("en-US")}`),
     el("h2", "", artist.name),
     el("p", "panel-sub", `Most played in ${format.month(artist.peak)} · last played ${format.ago(ago(artist.last))}`),
+  );
+
+  panel.append(
+    close,
+    head,
     stats,
     artistFacts(artist, data),
     el("div", "section-title", "When you listened"),
@@ -580,6 +653,7 @@ export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, o
     link,
   );
   panel.hidden = false;
+  setupSheet(panel, head, stats, { onChange: onSheet, onClose });
   requestAnimationFrame(() => {
     panel.classList.add("open");
     drawTimeline(canvas, artist, timeline, color);
