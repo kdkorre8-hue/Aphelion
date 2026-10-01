@@ -451,7 +451,7 @@ async function main() {
       meshes.set(song, planet);
       const tag = label([song.name], "name planet");
       tag.position.set(0, size + 0.35, 0);
-      tag.visible = named.has(song);
+      tag.visible = named.has(song) && namesOn;
       planet.add(tag);
       planet.userData.tag = tag;
       planet.userData.named = named.has(song);
@@ -508,7 +508,7 @@ async function main() {
     const planet = system?.meshes.get(song);
     if (!planet) return;
     planet.scale.setScalar(on ? 1.25 : 1);
-    planet.userData.tag.visible = on || planet.userData.named;
+    planet.userData.tag.visible = on || (planet.userData.named && namesOn);
     planet.userData.tag.element.classList.toggle("lit", on);
   }
 
@@ -577,7 +577,20 @@ async function main() {
   }
   function showOverviewLabels(on) { // hidden while you visit a star
     for (const l of timeLabels) l.visible = on;
-    for (const info of starInfo) info.name.visible = on;
+    for (const info of starInfo) info.name.visible = on && namesOn;
+  }
+
+  // Names on or off (N): star names in the overview and planet names in a system, remembered for next time
+  let namesOn = ui.settings.get("names") !== "off";
+  showOverviewLabels(true);
+  function toggleNames() {
+    namesOn = !namesOn;
+    ui.settings.set("names", namesOn ? "on" : "off");
+    ui.setNamesButton(namesOn);
+    showOverviewLabels(!system);
+    for (const planet of system?.byRank ?? []) {
+      planet.userData.tag.visible = planet.userData.tag.element.classList.contains("lit") || (planet.userData.named && namesOn);
+    }
   }
   const openSong = (id) => window.open(`https://open.spotify.com/track/${id}`, "_blank", "noopener");
 
@@ -722,12 +735,13 @@ async function main() {
     flyTo(home.target, home.distance, home.dir);
   }
 
-  ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onFullscreen: toggleFullscreen });
+  ui.setupControls({ onHome: showWholeGalaxy, onZoom: zoom, onNames: toggleNames, onFullscreen: toggleFullscreen, names: namesOn });
   const keys = {
     Escape: () => system && goHome(),
     h: showWholeGalaxy,
     "+": () => zoom(0.7), "=": () => zoom(0.7),
     "-": () => zoom(1 / 0.7), _: () => zoom(1 / 0.7),
+    n: toggleNames,
     f: toggleFullscreen,
   };
   window.addEventListener("keydown", (e) => {

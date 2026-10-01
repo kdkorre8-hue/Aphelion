@@ -54,6 +54,7 @@ const ICONS = {
   right: ["M9.5 6l6 6-6 6"],
   down: ["M6 9.5l6 6 6-6"],
   up: ["M6 14.5l6-6 6 6"],
+  names: ["M3.5 6.5h11l5.5 5.5-5.5 5.5h-11z", "M8 12v.01"],
 };
 const FILLED_ICONS = new Set(["play"]);
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -74,6 +75,16 @@ export function icon(name) {
 // ---------- page chrome ----------
 
 $("back").prepend(icon("back"));
+
+// Small preferences remembered in this browser. Private windows or blocked storage just don't remember.
+export const settings = {
+  get(key) {
+    try { return localStorage.getItem(`aphelion.${key}`); } catch { return null; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(`aphelion.${key}`, value); } catch { /* not remembered, that's all */ }
+  },
+};
 
 export function showMessage(text) {
   const box = $("message");
@@ -98,8 +109,8 @@ export function setupHeader(data, onHome) {
   $("brand").onclick = onHome;
 }
 
-// Buttons for the view: back to the whole galaxy, zoom, full screen (each also on a key)
-export function setupControls({ onHome, onZoom, onFullscreen }) {
+// Buttons for the view: back to the whole galaxy, zoom, names on or off, full screen (each also on a key)
+export function setupControls({ onHome, onZoom, onNames, onFullscreen, names }) {
   const button = (name, label, onClick, className = "") => {
     const b = el("button", className);
     b.type = "button";
@@ -114,9 +125,16 @@ export function setupControls({ onHome, onZoom, onFullscreen }) {
     el("div", "rule zoom"),
     button("plus", "Zoom in (+)", () => onZoom(0.7), "zoom"),
     button("minus", "Zoom out (−)", () => onZoom(1 / 0.7), "zoom"),
+    el("div", "rule"),
+    button("names", "Names (N)", onNames, "names-button"),
   ];
-  if (document.fullscreenEnabled) items.push(el("div", "rule"), button("fullscreen", "Full screen (F)", onFullscreen));
+  if (document.fullscreenEnabled) items.push(button("fullscreen", "Full screen (F)", onFullscreen));
   $("controls").replaceChildren(...items);
+  setNamesButton(names);
+}
+
+export function setNamesButton(on) {
+  document.querySelector("#controls .names-button").setAttribute("aria-pressed", String(on));
 }
 
 // The legend's color bar and its time marks, drawn from the stars' own color scale (days -> color, on a log scale)
