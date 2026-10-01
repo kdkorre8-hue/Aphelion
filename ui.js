@@ -382,8 +382,10 @@ function artistFacts(artist, data) {
 
 // A song in the list: a small planet in its planet's color (its album art, ringed in that color, when there is
 // one), its name over a bar for its share of the artist's plays, and its plays
+const songRows = new Map(); // song -> its row in the open panel
 function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onSongClick }) {
   const item = el("li");
+  songRows.set(song, item);
   item.style.setProperty("--planet", colorOf(song));
   const art = el("span", "song-art");
   if (song.image) {
@@ -405,9 +407,15 @@ function songRow(song, rank, mostPlays, colorOf, { onSongEnter, onSongLeave, onS
   return item;
 }
 
+// Pointing at a planet (or an asteroid) lights up its song in the list
+export function highlightRow(song, on) {
+  songRows.get(song)?.classList.toggle("lit", on);
+}
+
 export function openPanel(artist, data, { color, ago, rank, colorOf, timeline, onClose, onSongEnter, onSongLeave, onSongClick }) {
   const panel = $("panel");
   panel.replaceChildren();
+  songRows.clear();
   panel.style.setProperty("--artist", color);
 
   const close = el("button", "panel-close");

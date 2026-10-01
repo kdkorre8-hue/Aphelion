@@ -157,6 +157,7 @@
     .songs li { display: grid; grid-template-columns: 18px 22px 1fr auto; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px;
       border-radius: 8px; cursor: pointer; font-size: var(--fs-small); }
     .songs li:hover { background: rgba(255, 255, 255, 0.06); }
+    .songs li.lit { background: rgba(255, 255, 255, 0.08); box-shadow: inset 2px 0 0 var(--planet); } /* you point at its planet */
     .song-rank { color: var(--faint); font-variant-numeric: tabular-nums; font-size: var(--fs-caption); }
     /* a little planet in the song's planet color, lit from the top left; or its album art, ringed in that color */
     .song-art { width: 22px; height: 22px; border-radius: 50%; overflow: hidden;
