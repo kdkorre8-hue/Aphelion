@@ -14,7 +14,8 @@
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+        "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js"
       }
     }
   </script>
@@ -118,6 +119,23 @@
     .share-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .share-note { font-size: var(--fs-caption); color: var(--faint); }
     .button:disabled { opacity: 0.5; cursor: default; }
+
+    /* your own data in, a galaxy out: a window over the galaxy, or the whole page when there's none yet */
+    .modal.alone { z-index: 30; background: var(--bg); }
+    .modal.alone #upload-close, .upload-forget[hidden] { display: none; }
+    .upload-drop { display: grid; justify-items: center; gap: 10px; padding: 26px 16px; border: 1.5px dashed rgba(255, 255, 255, 0.18);
+      border-radius: 12px; text-align: center; transition: background 0.15s ease, border-color 0.15s ease; }
+    .upload-drop.over { border-color: var(--interactive); background: rgba(223, 231, 255, 0.06); }
+    .upload-drop .icon { width: 28px; height: 28px; color: var(--muted); }
+    .upload-drop p { margin: 0; color: var(--muted); font-size: var(--fs-small); }
+    .modal.busy .upload-drop { opacity: 0.5; pointer-events: none; }
+    .upload-steps { margin: 0; padding-left: 20px; color: var(--muted); font-size: var(--fs-small); display: grid; gap: 4px; }
+    .upload-steps b { color: var(--text); font-weight: 500; }
+    .upload-status { margin: 0; min-height: 1.45em; font-size: var(--fs-small); color: var(--text); }
+    .upload-status.problem { color: var(--warm); }
+    .upload-forget { padding: 6px 0; border: 0; background: none; color: var(--muted); font-size: var(--fs-caption); cursor: pointer;
+      text-decoration: underline; text-underline-offset: 3px; }
+    .upload-forget:hover { color: var(--text); }
 
     /* search: a box in the upper middle of the screen, over a dimmed galaxy */
     .search { position: fixed; inset: 0; z-index: 25; display: grid; justify-items: center; align-items: start; padding: 12vh 12px 12px;
@@ -518,6 +536,31 @@
       <div class="share-actions">
         <span class="share-note">Made right here in your browser: nothing is uploaded.</span>
         <button id="share-download" class="button primary" type="button">Download PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="upload" class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-title" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="upload-title" class="modal-title">Turn your listening into a galaxy</h2>
+        <button id="upload-close" class="card-close" type="button" aria-label="Close"></button>
+      </div>
+      <div id="upload-drop" class="upload-drop">
+        <p>Drop your Spotify data here</p>
+        <button id="upload-choose" class="button primary" type="button">Choose files</button>
+        <input id="upload-input" type="file" accept=".zip,.json,application/zip,application/json" multiple hidden>
+        <p class="share-note">my_spotify_data.zip, or the JSON files inside it</p>
+      </div>
+      <p id="upload-status" class="upload-status" role="status"></p>
+      <ol class="upload-steps">
+        <li>On spotify.com, open <b>Account › Privacy settings</b>.</li>
+        <li>Ask for your <b>Extended streaming history</b> (every year, can take a few weeks) or <b>Account data</b> (the last year, a few days).</li>
+        <li>When Spotify emails you, download the zip and drop it here.</li>
+      </ol>
+      <div class="share-actions">
+        <span class="share-note">Your files stay on this device. The galaxy is built in this browser and nothing is sent anywhere.</span>
+        <button id="upload-forget" class="upload-forget" type="button" hidden>Forget my upload</button>
       </div>
     </div>
   </div>

@@ -19,6 +19,7 @@ import { setupSearch } from "./search.js";
 import { setupScrubber } from "./scrubber.js";
 import { FORMATS, composePoster, setupShare } from "./poster.js";
 import { setupRecency } from "./recency.js";
+import { setupUpload, uploadedGalaxy } from "./upload.js";
 
 const TURNS = 2;                 // how many times the timeline winds around the center
 const INNER_RADIUS = 20;         // where your first play is
@@ -133,15 +134,15 @@ async function main() {
   // page's own parts wait for it from the start, under the loading screen
   const introduce = !calm && !location.hash.startsWith("#/artist/");
   if (introduce) ui.startIntro();
-  let data;
-  try {
-    data = await (await fetch("galaxy.json")).json();
-  } catch {
-    ui.showMessage("Couldn't load galaxy.json. Start the galaxy with: python galaxy.py");
-    return;
+  // the galaxy you uploaded here, if you did; otherwise the one galaxy.py built
+  const uploaded = await uploadedGalaxy();
+  let data = uploaded;
+  if (!data) {
+    try { data = await (await fetch("galaxy.json")).json(); } catch { /* none built: ask for your data instead */ }
   }
-  if (!data.stars?.length) {
-    ui.showMessage("No plays yet. Run python galaxy.py again after listening to some music.");
+  if (!data?.stars?.length) {
+    setupUpload({ alone: true });
+    ui.doneLoading();
     return;
   }
   ui.setupHeader(data, showWholeGalaxy);
@@ -695,7 +696,10 @@ async function main() {
       planet.userData.tag.visible = planet.userData.tag.element.classList.contains("lit") || (planet.userData.named && namesOn);
     }
   }
-  const openSong = (id) => window.open(`https://open.spotify.com/track/${id}`, "_blank", "noopener");
+  // Songs from the one-year history have no Spotify id, so those open a search for them instead
+  const openSong = (song, artist) => window.open(/^[0-9A-Za-z]{22}$/.test(song.id)
+    ? `https://open.spotify.com/track/${song.id}`
+    : `https://open.spotify.com/search/${encodeURIComponent(`${artist.name} ${song.name}`)}`, "_blank", "noopener");
   const colorOf = (song) => system?.colors.get(song) ?? BELT_COLOR; // a song's planet color; the belt's for the rest
 
   // The song you clicked, on a planet, an asteroid or in the list: its planet stays big and named, and the
@@ -708,7 +712,7 @@ async function main() {
     highlightSong(song, true);
     setAddress(addressOf(system.info, song), true); // the song refines the star's address, so Back skips it
     ui.announce(`${song.name}, ${ui.format.count(song.plays, "play")}`);
-    ui.showSong(song, system.info.artist, { ago: daysAgo, colorOf, onPlay: (s) => openSong(s.id), onClear: clearSong });
+    ui.showSong(song, system.info.artist, { ago: daysAgo, colorOf, onPlay: (s) => openSong(s, system.info.artist), onClear: clearSong });
   }
   function clearSong() {
     if (!selected) return;
@@ -904,7 +908,7 @@ async function main() {
   function showDust(item, x, y, focus = false) {
     ui.card.show(item, {
       x, y, ago: daysAgo, focus,
-      actions: [{ label: "Play the top song", icon: "play", iconAfter: "external", primary: true, onClick: () => openSong(item.artist.top_song.id) }],
+      actions: [{ label: "Play the top song", icon: "play", iconAfter: "external", primary: true, onClick: () => openSong(item.artist.top_song, item.artist) }],
     });
   }
 
@@ -1338,6 +1342,7 @@ async function main() {
     },
     filename: (format) => `aphelion-${system ? system.info.artist.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-") : "galaxy"}-${format}.png`,
   });
+  setupUpload({ alone: false, uploaded: Boolean(uploaded) });
 
   // ---------- search ----------
 
