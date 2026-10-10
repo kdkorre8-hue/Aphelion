@@ -51,6 +51,7 @@ const ICONS = {
   minus: ["M5 12h14"],
   fullscreen: ["M4 9V4h5", "M15 4h5v5", "M20 15v5h-5", "M9 20H4v-5"],
   share: ["M12 15V4", "M7.5 8.5L12 4l4.5 4.5", "M5 13v7h14v-7"],
+  upload: ["M7 3.5h6.5l4 4v13H7z", "M13.5 3.5V8h4", "M12 17.5v-6", "M9.5 14L12 11.5l2.5 2.5"],
   left: ["M14.5 6l-6 6 6 6"],
   right: ["M9.5 6l6 6-6 6"],
   down: ["M6 9.5l6 6 6-6"],
