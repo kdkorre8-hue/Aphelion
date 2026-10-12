@@ -19,7 +19,8 @@ import { setupSearch } from "./search.js";
 import { setupScrubber } from "./scrubber.js";
 import { FORMATS, composePoster, setupShare } from "./poster.js";
 import { setupRecency } from "./recency.js";
-import { setupUpload, uploadedGalaxy } from "./upload.js";
+import { setupUpload } from "./upload.js";
+import { welcome } from "./welcome.js";
 
 const TURNS = 2;                 // how many times the timeline winds around the center
 const INNER_RADIUS = 20;         // where your first play is
@@ -130,21 +131,12 @@ function dispose(object) {
 // ---------- scene ----------
 
 async function main() {
+  // The way in: the welcome page, where you bring your data or open the galaxy you made before
+  const { data, uploaded } = await welcome();
   // The arrival from afar, unless you'd rather have less motion or a link takes you straight to a star: the
   // page's own parts wait for it from the start, under the loading screen
   const introduce = !calm && !location.hash.startsWith("#/artist/");
   if (introduce) ui.startIntro();
-  // the galaxy you uploaded here, if you did; otherwise the one galaxy.py built
-  const uploaded = await uploadedGalaxy();
-  let data = uploaded;
-  if (!data) {
-    try { data = await (await fetch("galaxy.json")).json(); } catch { /* none built: ask for your data instead */ }
-  }
-  if (!data?.stars?.length) {
-    setupUpload({ alone: true });
-    ui.doneLoading();
-    return;
-  }
   ui.setupHeader(data, showWholeGalaxy);
   ui.setupLegend(HEAT, !phone.matches && ui.settings.get("legend") !== "closed"); // folded on phones, to start with
 
@@ -1342,7 +1334,7 @@ async function main() {
     },
     filename: (format) => `aphelion-${system ? system.info.artist.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-") : "galaxy"}-${format}.png`,
   });
-  setupUpload({ alone: false, uploaded: Boolean(uploaded) });
+  setupUpload({ uploaded });
 
   // ---------- search ----------
 

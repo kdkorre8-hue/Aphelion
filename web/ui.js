@@ -57,6 +57,8 @@ const ICONS = {
   down: ["M6 9.5l6 6 6-6"],
   up: ["M6 14.5l6-6 6 6"],
   names: ["M3.5 6.5h11l5.5 5.5-5.5 5.5h-11z", "M8 12v.01"],
+  lock: ["M8 10.5V8a4 4 0 0 1 8 0v2.5", "M5.5 10.5h13v10h-13z", "M12 14.5v2"],
+  arrow: ["M5 12h14", "M13 6l6 6-6 6"],
 };
 const FILLED_ICONS = new Set(["play"]);
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -85,6 +87,19 @@ export const settings = {
   },
   set(key, value) {
     try { localStorage.setItem(`aphelion.${key}`, value); } catch { /* not remembered, that's all */ }
+  },
+};
+
+// The same, but only for as long as this tab is open; null forgets
+export const session = {
+  get(key) {
+    try { return sessionStorage.getItem(`aphelion.${key}`); } catch { return null; }
+  },
+  set(key, value) {
+    try {
+      if (value === null) sessionStorage.removeItem(`aphelion.${key}`);
+      else sessionStorage.setItem(`aphelion.${key}`, value);
+    } catch { /* not remembered, that's all */ }
   },
 };
 

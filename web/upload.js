@@ -2,7 +2,7 @@
 // files in it) and it's read, summed up the same way galaxy.py does it, and kept in this browser. Nothing
 // leaves your device. Works with the extended streaming history and with the shorter one-year history.
 import { unzipSync, strFromU8 } from "fflate";
-import { el, icon, keepFocusIn } from "./ui.js";
+import { el, icon, keepFocusIn, session } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -178,10 +178,39 @@ export async function uploadedGalaxy() {
   try { return (await store("readonly")) ?? null; } catch { return null; }
 }
 
+export async function forgetUpload() {
+  try { await store("readwrite", null); } catch { /* nothing kept to forget */ }
+  session.set("entered", null); // so the next visit starts at the welcome page again
+}
+
+// The files you dropped -> { galaxy, kept }, kept being whether this browser holds on to it for next time.
+// say(text, problem) tells how it's going; null if there was no galaxy to make.
+export async function makeGalaxy(files, say) {
+  say("Reading your listening history…");
+  await new Promise((r) => setTimeout(r, 30)); // let that show before the heavy part
+  try {
+    const { plays, extended } = await readPlays(files);
+    if (!plays.length) {
+      say("No listening history in there. Drop my_spotify_data.zip, or the Streaming_History JSON files inside it.", true);
+      return null;
+    }
+    const galaxy = buildGalaxy(plays);
+    galaxy.history = extended ? "extended" : "basic";
+    say(`Building your galaxy from ${plays.length.toLocaleString("en-US")} plays…`);
+    let kept = true;
+    try { await store("readwrite", galaxy); } catch { kept = false; }
+    return { galaxy, kept };
+  } catch (error) {
+    console.error(error);
+    say("Couldn't read that file. Is it the zip from Spotify?", true);
+    return null;
+  }
+}
+
 // ---------- the window ----------
 
-// with a galaxy on screen it's a window over it; without one it's the whole page, and the way in
-export function setupUpload({ alone, uploaded }) {
+// a window over the galaxy, to make a new one from other data (the welcome page is the way in without one)
+export function setupUpload({ uploaded }) {
   const dialog = $("upload"), input = $("upload-input"), status = $("upload-status"), drop = $("upload-drop");
   let opener = null;
   drop.prepend(icon("upload"));
@@ -194,28 +223,15 @@ export function setupUpload({ alone, uploaded }) {
   async function take(files) {
     if (!files.length || dialog.classList.contains("busy")) return;
     dialog.classList.add("busy");
-    say("Reading your listening history…");
-    await new Promise((r) => setTimeout(r, 30)); // let that show before the heavy part
     try {
-      const { plays, extended } = await readPlays(files);
-      if (!plays.length) {
-        say("No listening history in there. Drop my_spotify_data.zip, or the Streaming_History JSON files inside it.", true);
-        return;
-      }
-      const galaxy = buildGalaxy(plays);
-      galaxy.history = extended ? "extended" : "basic";
-      say(`Building your galaxy from ${plays.length.toLocaleString("en-US")} plays…`);
-      try {
-        await store("readwrite", galaxy);
-      } catch {
+      const made = await makeGalaxy(files, say);
+      if (!made) return;
+      if (!made.kept) { // it comes back after the reload only if it was kept
         say("This browser won't keep the galaxy (a private window, maybe). Try a regular window.", true);
         return;
       }
       location.hash = "";
       location.reload();
-    } catch (error) {
-      console.error(error);
-      say("Couldn't read that file. Is it the zip from Spotify?", true);
     } finally {
       dialog.classList.remove("busy");
     }
@@ -241,16 +257,10 @@ export function setupUpload({ alone, uploaded }) {
   const forget = $("upload-forget");
   forget.hidden = !uploaded;
   forget.onclick = async () => {
-    try { await store("readwrite", null); } catch { /* nothing kept to forget */ }
+    await forgetUpload();
     location.hash = "";
     location.reload();
   };
-
-  if (alone) {
-    dialog.classList.add("alone");
-    dialog.hidden = false;
-    return;
-  }
 
   function open() {
     opener = document.activeElement;
