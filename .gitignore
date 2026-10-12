@@ -5,5 +5,7 @@ __pycache__/
 heavy_rotation.db*
 logger.log
 web/galaxy.json
-my_spotify_data*.zip
+# Spotify exports, whatever they're named
+*.zip
 *Extended Streaming History*/
+*Streaming_History*.json
